@@ -243,6 +243,10 @@ export function getConfig(config) {
   if (value.session?.store) {
     value.session.store = promisifyStore(value.session.store);
   }
+  // normalize to an options object, or undefined when disabled
+  if (typeof value.backchannelLogout === 'boolean') {
+    value.backchannelLogout = value.backchannelLogout ? {} : undefined;
+  }
   if (value.backchannelLogout?.store) {
     value.backchannelLogout.store = promisifyStore(value.backchannelLogout.store);
   }

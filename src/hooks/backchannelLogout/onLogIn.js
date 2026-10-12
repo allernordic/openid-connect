@@ -10,7 +10,8 @@ export async function onLogIn(req, config) {
     issuer: { issuer },
   } = await getClient(config);
   const { session, backchannelLogout } = config;
-  const store = backchannelLogout && typeof backchannelLogout === 'object' ? backchannelLogout.store : session.store;
+  // @ts-ignore
+  const store = backchannelLogout?.store || session.store;
 
   // Get the sub and sid from the ID token claims
   const { sub, sid } = req.oidc.idTokenClaims;

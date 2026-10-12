@@ -146,15 +146,11 @@ export class ResponseContext {
   }
 
   /**
-   * Backchannel logout configuration
+   * Backchannel logout configuration, normalized to an object or undefined by getConfig
    * @type {import('types').BackchannelLogoutOptions}
    */
   get backchannelLogoutOptions() {
-    if (typeof this.#config.backchannelLogout === 'boolean') {
-      return this.#config.backchannelLogout ? {} : undefined;
-    }
-
-    return this.#config.backchannelLogout;
+    return /** @type {import('types').BackchannelLogoutOptions} */ (this.#config.backchannelLogout);
   }
 
   get errorOnRequiredAuth() {
@@ -166,7 +162,8 @@ export class ResponseContext {
    */
   silentLogin(options) {
     const req = this.#req;
-    const silentLoginAttempted = !!(req[COOKIES] || {})[SKIP_SILENT_LOGIN_COOKIE_NAME];
+    // cookies are always parsed by appSession before res.oidc is attached
+    const silentLoginAttempted = !!req[COOKIES][SKIP_SILENT_LOGIN_COOKIE_NAME];
 
     if (silentLoginAttempted || req.oidc.isAuthenticated() || !req.accepts('html')) {
       return this.#next();
@@ -457,7 +454,7 @@ export class ResponseContext {
         const { payload, protectedHeader } = await jwtVerify(logoutToken, jwks, {
           issuer: issuer.issuer,
           audience: config.clientID,
-          clockTolerance: config.clockTolerance || 60,
+          clockTolerance: config.clockTolerance,
         });
 
         verifiedToken = payload;

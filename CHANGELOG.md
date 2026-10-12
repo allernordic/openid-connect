@@ -1,5 +1,11 @@
 # Change Log
 
+## v0.3.4 (2026-10-12)
+
+- back-channel logout token verification honours `clockTolerance: 0` instead of falling back to 60 seconds
+- `backchannelLogout: true` is normalized to an options object when validating config
+- use [`mocha-scenarios`](https://www.npmjs.com/package/mocha-scenarios) in favor of `mocha-cakes-2`
+
 ## v0.3.3 (2026-10-03)
 
 - change origin to Aller Media Nordic repository

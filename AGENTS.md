@@ -10,14 +10,14 @@ Node >= 22 required (`.nvmrc` pins 22). Type: `module`.
 
 ## Commands
 
-- `npm test` — Mocha test suite (extension `js`, recursive, BDD Gherkin-style via `mocha-cakes-2`). Posttest runs `build` + `lint` + `test:md`.
-- **Always lint after running tests.** `npm test` already chains `posttest` → `npm run build && npm run lint && npm run test:md`, so it's covered. If you run Mocha directly (e.g. `npx mocha test/foo.tests.js`), follow up with `npm run lint` before declaring a task done.
-- `npm run lint` — ESLint (`eslint . --cache`) + Prettier check. `npm run test:md` — `texample` executes README fenced code blocks (part of `posttest`, not `lint`).
+- `npm test` — Mocha test suite (extension `js`, recursive, BDD Gherkin-style via `mocha-scenarios`). Posttest runs `build` + `typecheck` + `lint` + `test:md`.
+- **Always lint after running tests.** `npm test` already chains `posttest` → `npm run build && npm run typecheck && npm run lint && npm run test:md`, so it's covered. If you run Mocha directly (e.g. `npx mocha test/foo.tests.js`), follow up with `npm run lint` before declaring a task done.
+- `npm run lint` — ESLint (`eslint . --cache`) + Prettier check. `npm run test:md` — `texample` executes README fenced code blocks (part of `posttest`, not `lint`). `npm run typecheck` — `tsc --noEmit` over the root `tsconfig.json` (strict, `src`) and `test/tsconfig.json` (loose, tests).
 - `npm run build` — `dts-buddy` emits `types/index.d.ts` from JSDoc in `src/`, then regenerates the README table of contents. Also runs as `prepack`, so `npm pack`/`npm publish` always ship fresh declarations and the gitignored `types/index.d.ts.map`.
 - `npm run cov:html` / `npm run test:lcov` — Coverage via `c8` over `src`.
 - `npm run toc` — `@0dep/toc` regenerates the README table of contents between the `<!-- toc -->` / `<!-- /toc -->` markers. Run it after adding or renaming README headings.
 - Single test file: `npx mocha test/login.tests.js`. Grep by scenario: `npx mocha --grep "default configuration"`.
-- Scenario globals (`Feature`, `Scenario`, `Given`, `When`, `Then`, `And`, `But`, `expect`) are provided by `mocha-cakes-2` + `chai/register-expect.js` — see `.mocharc.json` and `eslint.config.js`.
+- Scenario globals (`Feature`, `Scenario`, `Given`, `When`, `Then`, `And`, `But`, `expect`) are provided by `mocha-scenarios` + `chai/register-expect.js` — see `.mocharc.json` and `eslint.config.js` (spreads `mocha-scenarios/globals`). Types come from the package's ambient declarations via `types` in `test/tsconfig.json`, which also overrides `typeRoots` because the root config limits it to `node_modules/@types`; `test/global.d.ts` only declares `expect` and the session aliases.
 - `test/helpers/setup.js` calls `nock.disableNetConnect()` with localhost allowed — all issuer/discovery HTTP must be mocked via `nock` (see `test/helpers/openid-helper.js`).
 
 ## Architecture
@@ -65,7 +65,7 @@ JSDoc in `src/` drives types. `types/types.d.ts` declares `Express.Request#oidc`
 
 ## Testing conventions
 
-- Feature files live in `test/feature/`, unit-ish tests at `test/*.tests.js`. Both styles use Gherkin blocks from `mocha-cakes-2`.
+- Feature files live in `test/feature/`, unit-ish tests at `test/*.tests.js`. Both styles use Gherkin blocks from `mocha-scenarios`.
 - Use `nock` for issuer discovery and token endpoints — see `test/helpers/openid-helper.js` (`setupDiscovery`) and `test/fixture/` for shared certs, JWKS, and app builders.
 - `node:test`'s `mock.timers` is used to freeze `Date` inside scenarios that assert cookie expiry or token timing.
 - Fenced code blocks in `README.md` are executed by `texample` during lint — keep them runnable.

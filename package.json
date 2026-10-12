@@ -1,6 +1,6 @@
 {
   "name": "@aller/openid-connect",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Express middleware to protect web applications using OpenID Connect.",
   "type": "module",
   "module": "./src/index.js",
@@ -29,14 +29,15 @@
   ],
   "scripts": {
     "test": "mocha",
-    "posttest": "npm run build && npm run lint && npm run test:md",
+    "posttest": "npm run build && npm run typecheck && npm run lint && npm run test:md",
     "lint": "eslint . --cache && prettier . -c",
     "test:md": "texample",
     "cov:html": "c8 -n src -r html -r text mocha",
     "test:lcov": "c8 -n src -r lcov -r text mocha",
     "build": "dts-buddy && npm run toc",
     "prepack": "npm run build",
-    "toc": "toc -c README.md"
+    "toc": "toc -c README.md",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json --noEmit"
   },
   "dependencies": {
     "cookie": "^2.0.1",
@@ -44,12 +45,6 @@
     "joi": "^18.0.2",
     "on-headers": "^1.1.0",
     "openid-client": "^6.8.1"
-  },
-  "overrides": {
-    "mocha": {
-      "serialize-javascript": "^7.1.0",
-      "yargs": "^18.1.0"
-    }
   },
   "devDependencies": {
     "@0dep/toc": "^2.1.0",
@@ -70,12 +65,13 @@
     "globals": "^17.6.0",
     "jose-v2": "npm:jose@^2.0.7",
     "memorystore": "^1.6.8",
-    "mocha": "^11.7.5",
-    "mocha-cakes-2": "^3.3.0",
+    "mocha": "^12.0.3",
+    "mocha-scenarios": "^1.0.1",
     "nock": "^14.0.10",
     "prettier": "^3.6.2",
     "supertest": "^7.3.0",
-    "texample": "^1.0.0"
+    "texample": "^1.0.0",
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "express": ">= 4.17.0",

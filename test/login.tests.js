@@ -394,6 +394,24 @@ describe('auth', () => {
     expect(fetchFromAuthCookie(res, 'code_verifier')).to.be.ok;
   });
 
+  it('should carry max_age in the transaction cookie', async () => {
+    const server = createApp(
+      auth({
+        ...defaultConfig,
+        authorizationParams: {
+          max_age: 3600,
+        },
+      })
+    );
+    const res = await request(server).get('/login');
+    expect(res.statusCode, res.text).to.equal(302);
+
+    const parsed = new URL(res.headers.location);
+
+    expect(parsed.searchParams.get('max_age')).to.equal('3600');
+    expect(fetchFromAuthCookie(res, 'max_age')).to.equal(3600);
+  });
+
   it('should respect session.cookie.sameSite when transaction.sameSite is not set and response_mode is not form_post', async () => {
     const server = createApp(
       auth({

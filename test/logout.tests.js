@@ -204,6 +204,23 @@ describe('logout route', () => {
     expect(new URL(location).searchParams.get('foo')).to.equal('baz');
   });
 
+  it('should pass per request logout params when not authenticated', async () => {
+    const router = auth({
+      ...defaultConfig,
+      idpLogout: true,
+      routes: { logout: false },
+    });
+    const server = createApp(router);
+    router.get('/logout', (_req, res) => res.oidc.logout({ logoutParams: { foo: 'baz' } }));
+
+    const response = await request(server).get('/logout');
+
+    expect(response.statusCode, response.text).to.equal(302);
+    const url = new URL(response.headers.location);
+    expect(url.searchParams.get('foo')).to.equal('baz');
+    expect(url.searchParams.has('id_token_hint')).to.be.false;
+  });
+
   it('should honor logout url config over logout params', async () => {
     const server = createApp(
       auth({

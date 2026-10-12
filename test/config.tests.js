@@ -737,6 +737,20 @@ describe('get config', () => {
     ).to.not.throw();
   });
 
+  it('should normalize back-channel logout true to an options object', () => {
+    const config = getConfig({
+      ...defaultConfig,
+      backchannelLogout: true,
+      session: { store: /** @type {any} */ ({}) },
+    });
+    expect(config.backchannelLogout).to.deep.equal({});
+  });
+
+  it('should normalize back-channel logout false to undefined', () => {
+    const config = getConfig({ ...defaultConfig, backchannelLogout: false });
+    expect(config.backchannelLogout).to.be.undefined;
+  });
+
   it(`should configure back-channel logout with custom hooks`, () => {
     expect(() =>
       getConfig({

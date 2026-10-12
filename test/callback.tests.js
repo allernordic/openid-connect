@@ -27,7 +27,7 @@ const defaultConfig = {
 
 /**
  * Generate transient transaction cookie value
- * @param {Record<string, string>} value
+ * @param {Record<string, string | number>} value
  * @param {string} [cookieName]
  * @param {string} [secret]
  */
@@ -42,6 +42,7 @@ describe('callback response_mode: form_post', () => {
   });
   afterEach(() => {
     mock.timers.reset();
+    nock.cleanAll();
   });
 
   it('should error when the body is empty', async () => {
@@ -874,7 +875,75 @@ describe('callback response_mode: form_post', () => {
 
     expect(response.get('foo')).to.equal('bar');
   });
+
+  it('should redirect to returnTo from state', async () => {
+    const response = await hybridCallback();
+
+    expect(response.statusCode, response.text).to.equal(302);
+    expect(response.headers.location).to.equal('https://example.org');
+  });
+
+  it('should redirect to baseURL when a custom state lacks returnTo', async () => {
+    const response = await hybridCallback({}, { state: encodeState({ customProp: '__test_custom_prop__' }) });
+
+    expect(response.statusCode, response.text).to.equal(302);
+    expect(response.headers.location).to.equal('http://example.local');
+  });
+
+  it('should require auth_time when the transaction carries max_age', async () => {
+    const response = await hybridCallback({}, { max_age: 3600 });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err.code).to.equal('OAUTH_INVALID_RESPONSE');
+  });
+
+  it('should accept a recent auth_time when the transaction carries max_age', async () => {
+    const response = await hybridCallback({ auth_time: Math.floor(Date.now() / 1000) - 60 }, { max_age: 3600 });
+
+    expect(response.statusCode, response.text).to.equal(302);
+  });
 });
+
+/**
+ * Post a code id_token callback with a matching transaction cookie and mocked token endpoint
+ * @param {Record<string, any>} [idTokenClaims] extra id token claims
+ * @param {Record<string, string | number>} [transaction] transaction cookie overrides
+ */
+async function hybridCallback(idTokenClaims, transaction) {
+  setupJwks();
+
+  const agent = request.agent(
+    createApp(
+      auth({
+        ...defaultConfig,
+        authorizationParams: {
+          response_type: 'code id_token',
+        },
+      })
+    )
+  );
+
+  const idToken = await makeIdToken({
+    c_hash: '77QmUPtjPfzWtF2AnpK9RQ',
+    ...idTokenClaims,
+  });
+
+  nock('https://op.example.com/').post('/oauth/token').query(true).reply(200, {
+    access_token: '__test_access_token__',
+    id_token: idToken,
+    token_type: 'bearer',
+    expires_in: 86400,
+  });
+
+  const checks = { state: expectedDefaultState, nonce: '__test_nonce__', ...transaction };
+  const vercookie = await generateTransactionCookie(checks);
+
+  return agent.post('/callback').set('Cookie', `auth_verification=${vercookie}`).send({
+    state: checks.state,
+    code: 'jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y',
+    id_token: idToken,
+  });
+}
 
 function encodeBasicAuthValue(v) {
   return encodeURIComponent(v).replace(/_/g, '%5F');

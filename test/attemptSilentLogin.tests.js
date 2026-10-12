@@ -127,6 +127,23 @@ describe('attemptSilentLogin', () => {
     expect(response.statusCode, response.text).to.equal(200);
   });
 
+  it('should pass authorization params to res.oidc.silentLogin but force prompt none', async () => {
+    const router = auth({
+      ...defaultConfig,
+      authRequired: false,
+    });
+    const server = createApp(router);
+    router.get('/silent', (_req, res) => res.oidc.silentLogin({ authorizationParams: { ui_locales: 'sv', prompt: 'login' } }));
+
+    const response = await request(server).get('/silent');
+    expect(response.statusCode, response.text).to.equal(302);
+
+    const uri = new URL(response.headers.location);
+
+    expect(uri.searchParams.get('ui_locales'), 'ui_locales').to.equal('sv');
+    expect(uri.searchParams.get('prompt'), 'prompt').to.equal('none');
+  });
+
   it("should throw when there's no auth middleware", async () => {
     const server = createApp(attemptSilentLogin());
     const {
