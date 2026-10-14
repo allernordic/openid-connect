@@ -25,6 +25,7 @@ Inspired and borrowed from [express-openid-connect](https://www.npmjs.com/packag
   - [`Store`](#store)
 - [Protecting APIs with bearer tokens](#protecting-apis-with-bearer-tokens)
 - [Authorization with claim checks](#authorization-with-claim-checks)
+- [Rotating the secret](#rotating-the-secret)
 - [Differences from `express-openid-connect`](#differences-from-express-openid-connect)
 
 <!-- /toc -->
@@ -104,7 +105,7 @@ Returns an `express.Router` that loads the session, attaches `req.oidc` and `res
 
 All options are validated with a schema when `auth()` is called; an invalid or missing option throws a `TypeError` at startup. Defaults are the effective values from that schema. The list mirrors the shape of `params`.
 
-- `secret` **required**: string, `Buffer`, or array of either, at least 8 bytes. Derives the session cookie encryption key and signs transient cookies. With an array the first entry signs and encrypts, all entries verify and decrypt, which allows key rotation
+- `secret` **required**: string, `Buffer`, or array of either, at least 8 bytes. Derives the session cookie encryption key and signs transient cookies. With an array the first entry signs and encrypts, all entries verify and decrypt, see [rotating the secret](#rotating-the-secret)
 - `baseURL` **required**: public root URL of the app, e.g. `https://app.example.com/some/path`. When mounted under a path, mount `auth()` under the same path. `'autodetect'` builds it per request from `req.protocol` and `req.host`, so enable `trust proxy` behind a proxy
 - `clientID` **required**: the OIDC client id
 - `issuerBaseURL` **required**: issuer URL without trailing slash. Discovery is fetched from `<issuerBaseURL>/.well-known/openid-configuration`
@@ -320,6 +321,33 @@ app.use((err, req, res, next) => {
   res.status(err.statusCode || 500).send(err.message);
 });
 ```
+
+## Rotating the secret
+
+`secret` accepts an array, so a new secret can be introduced without logging everyone out. The first entry encrypts session cookies and signs transient and session id cookies; every entry is tried when decrypting and verifying.
+
+1. Deploy with the new secret first and the old one after it.
+2. Keep the old secret until every cookie it protects has expired. Each request re-encrypts the session cookie with the new secret, so only idle sessions still depend on the old one. Wait `session.rollingDuration` (default 1 day) with rolling sessions, or `session.absoluteDuration` (default 7 days) when `session.rolling` is `false`.
+3. Deploy with only the new secret.
+
+```javascript
+import express from 'express';
+
+import { auth } from '@aller/openid-connect';
+
+const app = express();
+
+app.use(
+  auth({
+    baseURL: 'https://app.example.com',
+    secret: ['n3w-supers3cret', 'supers3cret'],
+    clientID: 'insecure-client-id',
+    issuerBaseURL: 'https://op.example.com',
+  })
+);
+```
+
+Sessions whose cookie no secret in the list can decrypt are silently dropped, and the user has to log in again. With a custom `session.store` the secret only signs the session id cookie (`signSessionStoreCookie`); the stored session data is unaffected. `secret` is unrelated to `clientSecret` and `clientAssertionSigningKey`, which are rotated with the identity provider.
 
 ## Differences from `express-openid-connect`
 
