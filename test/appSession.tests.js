@@ -19,15 +19,6 @@ const defaultConfig = {
   errorOnRequiredAuth: true,
 };
 
-/**
- * Login with id_token claims
- * @param {import('supertest').Agent} agent
- * @param {Record<string, any>} claims
- */
-async function login(agent, claims) {
-  return agent.post('/session').send({ id_token: await makeIdToken(claims) });
-}
-
 const HR_MS = 60 * 60 * 1000;
 
 describe('appSession', () => {
@@ -537,3 +528,12 @@ describe('appSession', () => {
     expect(res.body, res.text).to.be.empty;
   });
 });
+
+/**
+ * Login with id_token claims
+ * @param {import('supertest').Agent} agent
+ * @param {Record<string, any>} claims
+ */
+async function login(agent, claims) {
+  return agent.post('/session').send({ id_token: await makeIdToken(claims) });
+}

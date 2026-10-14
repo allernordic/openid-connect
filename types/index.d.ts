@@ -4,9 +4,10 @@ declare module '@aller/openid-connect' {
 	import type { KeyObject } from 'node:crypto';
 	export function attemptSilentLogin(): (req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => void | Promise<void>;
 	/**
-	 * Returns a router with two routes /login and /callback
+	 * OpenID Connect authentication router: manages the session, handles login, logout and callback,
+	 * and protects the routes mounted after it unless `authRequired` is `false`
 	 *
-	 * @param params The parameters object; see index.d.ts for types and descriptions.
+	 * @param params configuration
 	 *
 	 * @returns the router
 	 */
@@ -15,39 +16,21 @@ declare module '@aller/openid-connect' {
 		export { Store };
 	}
 	/**
-	 * Returns a middleware that authenticates requests carrying an OAuth2 bearer
-	 * access token (a JWT), for JSON APIs consumed outside the cookie session the
-	 * `auth()` router maintains — e.g. cross-origin AJAX callers or other services.
+	 * Protect JSON API routes with an OAuth2 bearer access token (JWT) issued by the issuer for `audience`,
+	 * e.g. for cross-origin AJAX callers or other services.
 	 *
-	 * The token is verified against the issuer's JWKS. The JWKS location is
-	 * resolved from OIDC discovery on first use and cached for the lifetime of the
-	 * middleware instance (a failed discovery is not cached — the next request
-	 * retries). The token must be signed by the issuer, addressed to `audience`,
-	 * and within its validity window.
-	 *
-	 * On success the verified token is exposed as
-	 * `req.bearerAuth = { payload, protectedHeader, token }` and the request
-	 * proceeds. The `requiresAuth` family (`requiresAuth`, `claimEquals`,
-	 * `claimIncludes`, `claimCheck`) recognizes `req.bearerAuth`, so claim checks
-	 * can be chained after this middleware to authorize on the token claims.
-	 * On failure the middleware calls `next()` with an `UnauthorizedError`
-	 * (`statusCode: 401`) whose `headers` carry an RFC 6750 `WWW-Authenticate`
-	 * challenge — pair it with a JSON error handler that applies `err.headers`
-	 * to the response.
-	 *
-	 * With `fallthrough: true` a request without a bearer token continues to the
-	 * next handler unauthenticated (`req.bearerAuth` unset) instead of failing, so
-	 * other auth methods can be chained after this one. A presented-but-invalid
-	 * token is still rejected.
+	 * The verified token is exposed as `req.bearerAuth = { payload, protectedHeader, token }`, and the
+	 * `requiresAuth` family can be chained after this middleware to authorize on its claims. A missing or
+	 * invalid token is rejected with an `UnauthorizedError` (401) whose `headers` carry the `WWW-Authenticate`
+	 * challenge to apply to the response. With `fallthrough: true` a request without a token continues unauthenticated.
 	 *
 	 * */
 	export function requiresBearerAuth(params: BearerAuthParams): import("express").RequestHandler;
 	/**
-	 * Express-session compatible session store base class.
+	 * Express-session compatible session store base class, for callback based session stores.
 	 *
 	 * Session store factories that expect the express-session module can be instantiated
-	 * with `auth`, which exposes this class as `auth.Store`. Stores extending this class
-	 * are considered callback based and are promisified by `getConfig`.
+	 * with `auth`, which exposes this class as `auth.Store`.
 	 * */
 	export function Store(): void;
 	export class Store {
@@ -59,30 +42,23 @@ declare module '@aller/openid-connect' {
 	 */
 	export function requiresAuth(requiresLoginCheck?: ((req: import("express").Request) => boolean) | RequiresAuthOptions, options?: RequiresAuthOptions): (req: import("express").Request<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>, res: import("express").Response<any, Record<string, any>>, next: import("express").NextFunction) => Promise<void>;
 	/**
-	 * ID token claim equals. Comparison is strict unless `options.ignoreCase`
-	 * and/or `options.trim` are set, which normalize string values on both sides.
+	 * Require a claim of the authenticated identity to equal a value
 	 * 
 	 */
 	export function claimEquals(claim: string, expected: string | number | boolean | null, options?: RequiresAuthOptions): (req: import("express").Request<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>, res: import("express").Response<any, Record<string, any>>, next: import("express").NextFunction) => Promise<void>;
 	/**
-	 * ID token claim includes — every expected value must be present in the
-	 * claim (an array or a space separated string). Comparison is strict unless
-	 * `options.ignoreCase` and/or `options.trim` are set. Pass an options object
-	 * as the last argument.
+	 * Require a claim of the authenticated identity, an array or a space separated string,
+	 * to include every value. Pass options as the last argument.
 	 * */
 	export function claimIncludes(claim: string, ...args: (string | number | boolean | null | RequiresAuthOptions)[]): (req: import("express").Request<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>, res: import("express").Response<any, Record<string, any>>, next: import("express").NextFunction) => Promise<void>;
 	/**
-	 * ID token claim includes any — at least one expected value must be present
-	 * in the claim (an array or a space separated string). Comparison is strict
-	 * unless `options.ignoreCase` and/or `options.trim` are set. Pass an options
-	 * object as the last argument.
+	 * Require a claim of the authenticated identity, an array or a space separated string,
+	 * to include at least one value. Pass options as the last argument.
 	 * */
 	export function claimIncludesAny(claim: string, ...args: (string | number | boolean | null | RequiresAuthOptions)[]): (req: import("express").Request<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>, res: import("express").Response<any, Record<string, any>>, next: import("express").NextFunction) => Promise<void>;
 	/**
-	 * Custom claim check. The check function is only called for an authenticated
-	 * request. Return a truthy value to allow the request, a falsy value to reject
-	 * it with a `ForbiddenError`, or an `Error` (e.g. a `ForbiddenError` carrying a
-	 * reason) to reject it with that error.
+	 * Authorize an authenticated request with a custom check. Return a truthy value to allow
+	 * the request, a falsy value to reject it with a `ForbiddenError`, or an `Error` to reject it with that error.
 	 * 
 	 */
 	export function claimCheck(func: (req: import("express").Request, claims: IdTokenClaims) => unknown, options?: RequiresAuthOptions): (req: import("express").Request<import("express-serve-static-core").ParamsDictionary, any, any, import("qs").ParsedQs, Record<string, any>>, res: import("express").Response<any, Record<string, any>>, next: import("express").NextFunction) => Promise<void>;
@@ -96,8 +72,7 @@ declare module '@aller/openid-connect' {
 	}
 	export class ForbiddenError extends Error {
 		/**
-		 * Raised by the claim check middlewares (`claimEquals`, `claimIncludes`,
-		 * `claimCheck`) when the request is authenticated but the claim check fails.
+		 * Raised by the claim check middlewares when an authenticated request fails the claim check
 		 * @param reason what failed, e.g. `{ claim, expected, actual }`
 		 */
 		constructor(msg: string, reason?: ForbiddenReason);
@@ -854,7 +829,7 @@ declare module '@aller/openid-connect' {
 	/**
 	 * Marks the cookie to be used over secure channels only.
 	 * Passed to the [Response cookie](https://expressjs.com/en/api.html#res.cookie) as `secure`.
-	 * Defaults to the protocol of {@link ConfigParams.baseURL}.
+	 * Defaults to the protocol of {@link ConfigParams.baseURL}, and to `true` when it is `autodetect`.
 	 */
 	secure?: boolean;
 

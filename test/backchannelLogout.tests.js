@@ -11,17 +11,6 @@ import { createApp } from './fixture/server.js';
 import { CustomStore } from './helpers/custom-store.js';
 import { setupDiscovery } from './helpers/openid-helper.js';
 
-/**
- * Login and get session with id_token
- * @param {import('supertest').Agent} agent
- * @param {string} [idToken]
- */
-async function login(agent, idToken) {
-  return agent.post('/session').send({
-    id_token: idToken || (await makeIdToken()),
-  });
-}
-
 describe('back-channel logout', () => {
   before(() => {
     setupDiscovery().persist();
@@ -314,3 +303,14 @@ describe('back-channel logout', () => {
     expect(body).to.deep.equal({ err: { message: 'storage failure' } });
   });
 });
+
+/**
+ * Login and get session with id_token
+ * @param {import('supertest').Agent} agent
+ * @param {string} [idToken]
+ */
+async function login(agent, idToken) {
+  return agent.post('/session').send({
+    id_token: idToken || (await makeIdToken()),
+  });
+}

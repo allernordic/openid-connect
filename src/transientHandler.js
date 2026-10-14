@@ -2,7 +2,7 @@ import { COOKIES } from './constants.js';
 import { signCookie, verifyCookie, getSigningKeyStore } from './crypto.js';
 
 /**
- * Transaction cookie handler to handle cookies between login and callback
+ * Handle the transaction cookie carried from login to callback
  */
 export class TransientCookieHandler {
   #config;
@@ -20,7 +20,7 @@ export class TransientCookieHandler {
   }
 
   /**
-   * Set transaction cookie with a value or a generated nonce.
+   * Set the transaction cookie
    *
    * @param {import('express').Response} res Express Response object.
    * @param {string} value Cookie value
@@ -43,7 +43,6 @@ export class TransientCookieHandler {
     };
 
     const cookieValue = await signCookie(cookieName, value, this.currentSigningKey);
-    // Set the cookie with the SameSite attribute and, if needed, the Secure flag.
     res.cookie(cookieName, cookieValue, {
       ...basicAttr,
       sameSite: opts?.sameSite ?? 'none',
@@ -52,7 +51,6 @@ export class TransientCookieHandler {
 
     if (isSameSiteNone && this.legacySameSiteCookie) {
       const cookieValue = await signCookie(`_${cookieName}`, value, this.currentSigningKey);
-      // Set the fallback cookie with no SameSite or Secure attributes.
       res.cookie(`_${cookieName}`, cookieValue, basicAttr);
     }
 
@@ -90,7 +88,7 @@ export class TransientCookieHandler {
   }
 
   /**
-   * Clears the cookie from the browser by setting an empty value and an expiration date in the past
+   * Clear a cookie from the browser
    *
    * @param {string} name Cookie name
    * @param {import('express').Response} res Express Response object

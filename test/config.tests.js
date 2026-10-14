@@ -7,10 +7,6 @@ const defaultConfig = {
   baseURL: 'https://example.org',
 };
 
-function validateAuthorizationParams(authorizationParams) {
-  return getConfig({ ...defaultConfig, authorizationParams });
-}
-
 describe('get config', () => {
   it('should get config for default config', () => {
     const config = getConfig(defaultConfig);
@@ -112,6 +108,23 @@ describe('get config', () => {
     const config = getConfig({
       ...defaultConfig,
       baseURL: 'https://example.com',
+      session: { cookie: { secure: false } },
+    });
+    expect(config.session.cookie.secure).to.be.false;
+  });
+
+  it('should default to a secure session cookie for autodetected baseURL', () => {
+    const config = getConfig({
+      ...defaultConfig,
+      baseURL: 'autodetect',
+    });
+    expect(config.session.cookie.secure).to.be.true;
+  });
+
+  it('should warn but accept an insecure session cookie for autodetected baseURL', () => {
+    const config = getConfig({
+      ...defaultConfig,
+      baseURL: 'autodetect',
       session: { cookie: { secure: false } },
     });
     expect(config.session.cookie.secure).to.be.false;
@@ -763,3 +776,7 @@ describe('get config', () => {
     ).to.not.throw();
   });
 });
+
+function validateAuthorizationParams(authorizationParams) {
+  return getConfig({ ...defaultConfig, authorizationParams });
+}

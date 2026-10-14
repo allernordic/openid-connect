@@ -3,10 +3,7 @@ import { Debug } from '../debug.js';
 const debug = Debug('getLoginState');
 
 /**
- * Generate the state value for use during login transactions. It is used to store the intended
- * return URL after the user authenticates. State is not used to carry unique PRNG values here
- * because the library utilizes either nonce or PKCE for CSRF protection.
- *
+ * Default login state, carries the URL to return to after login
  * @param {import('express').Request} req
  * @param {any} options
  * @returns {Record<string, any>}
@@ -18,9 +15,7 @@ export function defaultState(req, options) {
 }
 
 /**
- * Prepare a state object to send.
- * Filters out nonce, code_verifier, and max_age from the state object so that the values are
- * only stored in its dedicated transient cookie
+ * Encode login state as the authorization request `state` parameter
  * @param {any} stateObject
  */
 export function encodeState(stateObject = {}) {
@@ -29,8 +24,7 @@ export function encodeState(stateObject = {}) {
 }
 
 /**
- * Decode a state value.
- *
+ * Decode the `state` parameter back into login state
  * @param {string} stateValue
  */
 export function decodeState(stateValue) {

@@ -13,12 +13,6 @@ const defaultConfig = {
   issuerBaseURL: 'https://op.example.com',
 };
 
-async function login(agent, claims) {
-  return agent.post('/session').send({
-    id_token: await makeIdToken(claims),
-  });
-}
-
 describe('attemptSilentLogin', () => {
   before(() => {
     setupDiscovery().persist();
@@ -153,3 +147,9 @@ describe('attemptSilentLogin', () => {
     expect(err.message).to.equal('req.oidc is not found, did you include the auth middleware?');
   });
 });
+
+async function login(agent, claims) {
+  return agent.post('/session').send({
+    id_token: await makeIdToken(claims),
+  });
+}

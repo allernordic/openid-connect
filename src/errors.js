@@ -37,8 +37,7 @@ export class UnauthorizedError extends Error {
 
 export class ForbiddenError extends Error {
   /**
-   * Raised by the claim check middlewares (`claimEquals`, `claimIncludes`,
-   * `claimCheck`) when the request is authenticated but the claim check fails.
+   * Raised by the claim check middlewares when an authenticated request fails the claim check
    * @param {string} msg
    * @param {import('types').ForbiddenReason} [reason] what failed, e.g. `{ claim, expected, actual }`
    */

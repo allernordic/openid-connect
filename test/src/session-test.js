@@ -1,11 +1,5 @@
 import { Session } from '../../src/session.js';
 
-function makeUnsignedJwt(payload) {
-  const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `${header}.${body}.`;
-}
-
 describe('session', () => {
   describe('getClaims()', () => {
     it('lazily decodes claims from id_token when not already cached', () => {
@@ -30,3 +24,9 @@ describe('session', () => {
     });
   });
 });
+
+function makeUnsignedJwt(payload) {
+  const header = Buffer.from(JSON.stringify({ alg: 'none' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return `${header}.${body}.`;
+}

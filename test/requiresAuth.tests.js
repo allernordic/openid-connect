@@ -13,12 +13,6 @@ const defaultConfig = {
   issuerBaseURL: 'https://op.example.com',
 };
 
-async function login(agent, claims) {
-  return agent.post('/session').send({
-    id_token: await makeIdToken(claims),
-  });
-}
-
 describe('requiresAuth', () => {
   before(() => {
     setupDiscovery().persist();
@@ -825,3 +819,9 @@ describe('requiresAuth', () => {
     });
   });
 });
+
+async function login(agent, claims) {
+  return agent.post('/session').send({
+    id_token: await makeIdToken(claims),
+  });
+}

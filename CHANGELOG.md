@@ -1,5 +1,11 @@
 # Change Log
 
+## v1.0.0
+
+### Breaking
+
+- `baseURL: 'autodetect'` defaults `session.cookie.secure` to `true`, as an `https` `baseURL` does, so the session cookie, the silent login cookie and the transaction cookie are marked `Secure`. Previously autodetect forced `secure: false` and rejected `true`. Apps serving autodetect over plain http, other than `localhost`, must set `session.cookie.secure: false`, which logs a warning
+
 ## v0.3.4 (2026-10-12)
 
 - back-channel logout token verification honours `clockTolerance: 0` instead of falling back to 60 seconds

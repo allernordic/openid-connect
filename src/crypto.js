@@ -12,7 +12,7 @@ const CRITICAL_HEADER_PARAMS = ['b64'];
 const header = { alg: ALG, b64: false, crit: CRITICAL_HEADER_PARAMS };
 
 /**
- * Get current HKDF encryption keys
+ * Get cookie encryption keys
  * @param {string|Buffer|Array<string|Buffer>} secret secret or secrets
  * @returns {[Buffer, Buffer[]]} tuple with secrets [current, [current, ...]]
  */
@@ -23,7 +23,7 @@ export function getEncryptionKeyStore(secret) {
 }
 
 /**
- * Get current HKDF encryption keys
+ * Get cookie signing keys
  * @param {string|Buffer|Array<string|Buffer>} secret secret or secrets
  * @returns {[Buffer, Buffer[]]} tuple with secrets [current, [current, ...]]
  */
@@ -79,7 +79,6 @@ export async function encrypt(key, payload, headers) {
  * @param {string} jweCompact
  */
 export async function decrypt(keystore, jweCompact) {
-  // Try each key in keystore (for key rotation support)
   const keysToTry = Array.isArray(keystore) ? keystore : [keystore];
 
   for (const key of keysToTry) {
@@ -97,6 +96,7 @@ export async function decrypt(keystore, jweCompact) {
 }
 
 /**
+ * Generate cookie signature
  * @param {string} cookie cookie name
  * @param {string} value cookie value
  * @param {Buffer} key signature key
@@ -127,11 +127,7 @@ async function verifySignature(cookie, value, signature, keystore) {
 }
 
 /**
- *
- * Derives appropriate sized keys from the end-user provided secret random string/passphrase using
- * HKDF (HMAC-based Extract-and-Expand Key Derivation Function) defined in RFC 8569.
- *
- * @see https://tools.ietf.org/html/rfc5869
+ * Derive the cookie encryption key from a secret
  * @param {string|Buffer} secret
  */
 function encryption(secret) {
@@ -139,6 +135,7 @@ function encryption(secret) {
 }
 
 /**
+ * Derive the cookie signing key from a secret
  * @param {string|Buffer} secret
  */
 function signing(secret) {

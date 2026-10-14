@@ -146,7 +146,7 @@ export class ResponseContext {
   }
 
   /**
-   * Backchannel logout configuration, normalized to an object or undefined by getConfig
+   * Backchannel logout options, undefined when backchannel logout is disabled
    * @type {import('types').BackchannelLogoutOptions}
    */
   get backchannelLogoutOptions() {
@@ -211,7 +211,6 @@ export class ResponseContext {
     try {
       const { client } = await getClient(config);
 
-      // Set default returnTo value, allow passed-in options to override or use originalUrl on GET
       let returnTo = '/';
 
       if (options?.returnTo) {
@@ -314,7 +313,6 @@ export class ResponseContext {
     if (!req.oidc.isAuthenticated()) {
       debug('end-user already logged out, redirecting to %s', returnUrl);
 
-      // perform idp logout with no token hint
       return res.redirect(await this.getLogoutUrl(returnUrl, undefined, options?.logoutParams));
     }
 
@@ -330,7 +328,7 @@ export class ResponseContext {
 
   /**
    * Provided by default via the `/callback` route. Call this to override or have other
-   * callback routes with
+   * callback routes
    *
    * ```js
    * app.get('/callback', (req, res) => {
@@ -351,7 +349,6 @@ export class ResponseContext {
 
       const callbackParams = req.method === 'POST' ? req.body : req.query;
 
-      // Get auth verification for checks
       const authVerification = await this.#transient.getOnce(config.transactionCookie.name, req, res);
 
       const checks = authVerification ? JSON.parse(authVerification) : {};
@@ -389,7 +386,6 @@ export class ResponseContext {
 
       this.#res.oidc.resumeSilentLogin();
 
-      // Handle backchannel logout onLogin hook
       if (req.oidc.isAuthenticated() && this.hasBackchannelLogout && this.backchannelLogoutOptions.onLogin !== false) {
         await (this.backchannelLogoutOptions.onLogin || onLogin)(req, config);
       }
@@ -421,9 +417,7 @@ export class ResponseContext {
       });
     }
 
-    // Check if insecure mode is explicitly enabled for testing
     if (this.hasBackchannelLogout && this.backchannelLogoutOptions?.isInsecure) {
-      // INSECURE MODE - Only for testing, requires explicit configuration
       debug('Using insecure backchannel logout mode - DO NOT USE IN PRODUCTION');
       const token = decodeJwt(logoutToken);
       const onToken = this.backchannelLogoutOptions.onLogoutToken || onLogoutToken;
@@ -459,7 +453,7 @@ export class ResponseContext {
 
         verifiedToken = payload;
 
-        // Manually validate typ if present in the protected header, see https://openid.net/specs/openid-connect-backchannel-1_0.html#Validation
+        // typ is optional, https://openid.net/specs/openid-connect-backchannel-1_0.html#Validation
         if (protectedHeader.typ && protectedHeader.typ !== 'logout+jwt') {
           throw new Error(`Invalid token type: expected 'logout+jwt', got '${protectedHeader.typ}'`);
         }
@@ -483,7 +477,6 @@ export class ResponseContext {
         return;
       }
 
-      // Process the verified logout token
       const onToken = this.backchannelLogoutOptions?.onLogoutToken || onLogoutToken;
       try {
         await onToken(verifiedToken, config);
@@ -512,7 +505,7 @@ export class ResponseContext {
   }
 
   /**
-   * Cancel silent login, sets skip silent login cookie
+   * Stop further silent login attempts
    */
   cancelSilentLogin() {
     const { secure, domain, path, sameSite } = this.#config.session.cookie;
@@ -537,11 +530,7 @@ export class ResponseContext {
   }
 
   /**
-   * Generates the logout URL.
-   *
-   * Depending on the configuration, this function will either perform a local only logout
-   * or a federated logout by redirecting to the appropriate URL.
-   *
+   * Get the URL to redirect the user to on logout, at the issuer when `idpLogout` is enabled
    * @param {string} returnUrl End session post logout redirect URI
    * @param {string} [idTokenHint] The ID token hint to be used for the logout request.
    * @param {Record<string, any>} [logoutParams] Override end session url params

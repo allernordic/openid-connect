@@ -36,18 +36,6 @@ export function getKeyStore(secret, forEncryption) {
   return [current, keystore];
 }
 
-function getPayload(cookie, value) {
-  return Buffer.from(`${cookie}=${value}`);
-}
-
-function flattenedJWSFromCookie(cookie, value, signature) {
-  return {
-    protected: Buffer.from(JSON.stringify(header)).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'),
-    payload: getPayload(cookie, value),
-    signature,
-  };
-}
-
 /**
  * @param {string} cookie cookie name
  * @param {string} value  cookie value
@@ -83,4 +71,16 @@ export function verifyCookie(cookie, value, keystore) {
 export function signCookie(cookie, value, key) {
   const signature = generateSignature(cookie, value, key);
   return `${value}.${signature}`;
+}
+
+function getPayload(cookie, value) {
+  return Buffer.from(`${cookie}=${value}`);
+}
+
+function flattenedJWSFromCookie(cookie, value, signature) {
+  return {
+    protected: Buffer.from(JSON.stringify(header)).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'),
+    payload: getPayload(cookie, value),
+    signature,
+  };
 }

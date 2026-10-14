@@ -7,30 +7,13 @@ import { getRemoteJWKSet } from '../jwks.js';
 const debug = Debug('requiresBearerAuth');
 
 /**
- * Returns a middleware that authenticates requests carrying an OAuth2 bearer
- * access token (a JWT), for JSON APIs consumed outside the cookie session the
- * `auth()` router maintains — e.g. cross-origin AJAX callers or other services.
+ * Protect JSON API routes with an OAuth2 bearer access token (JWT) issued by the issuer for `audience`,
+ * e.g. for cross-origin AJAX callers or other services.
  *
- * The token is verified against the issuer's JWKS. The JWKS location is
- * resolved from OIDC discovery on first use and cached for the lifetime of the
- * middleware instance (a failed discovery is not cached — the next request
- * retries). The token must be signed by the issuer, addressed to `audience`,
- * and within its validity window.
- *
- * On success the verified token is exposed as
- * `req.bearerAuth = { payload, protectedHeader, token }` and the request
- * proceeds. The `requiresAuth` family (`requiresAuth`, `claimEquals`,
- * `claimIncludes`, `claimCheck`) recognizes `req.bearerAuth`, so claim checks
- * can be chained after this middleware to authorize on the token claims.
- * On failure the middleware calls `next()` with an `UnauthorizedError`
- * (`statusCode: 401`) whose `headers` carry an RFC 6750 `WWW-Authenticate`
- * challenge — pair it with a JSON error handler that applies `err.headers`
- * to the response.
- *
- * With `fallthrough: true` a request without a bearer token continues to the
- * next handler unauthenticated (`req.bearerAuth` unset) instead of failing, so
- * other auth methods can be chained after this one. A presented-but-invalid
- * token is still rejected.
+ * The verified token is exposed as `req.bearerAuth = { payload, protectedHeader, token }`, and the
+ * `requiresAuth` family can be chained after this middleware to authorize on its claims. A missing or
+ * invalid token is rejected with an `UnauthorizedError` (401) whose `headers` carry the `WWW-Authenticate`
+ * challenge to apply to the response. With `fallthrough: true` a request without a token continues unauthenticated.
  *
  * @param {import('types').BearerAuthParams} params
  * @returns {import('express').RequestHandler}
@@ -75,9 +58,7 @@ export function requiresBearerAuth(params) {
 }
 
 /**
- * Resolve the issuer identifier and JWKS from the OIDC discovery document. The
- * discovered `issuer` value (not the configured URL) is what tokens are
- * verified against, so trailing-slash differences never cause a mismatch.
+ * Resolve the issuer identifier and JWKS from the OIDC discovery document
  * @param {URL} discoveryUrl
  */
 async function discoverIssuer(discoveryUrl) {

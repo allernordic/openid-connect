@@ -276,61 +276,6 @@ describe('auth', () => {
     expect(decodedState.returnTo).to.equal('https://example.org/custom-redirect');
   });
 
-  it('should not allow removing openid from scope', async () => {
-    const router = auth({ ...defaultConfig, routes: { login: false } });
-    router.get('/login', (_req, res) => {
-      res.oidc.login({
-        authorizationParams: {
-          scope: 'email',
-        },
-      });
-    });
-    const server = createApp(router);
-
-    const res = await request(server).get('/login');
-    expect(res.statusCode, res.text).to.equal(500);
-    expect(res.body.err.message).to.equal('scope should contain "openid"');
-  });
-
-  it('should not allow an invalid response_type', async () => {
-    const router = auth({
-      ...defaultConfig,
-      routes: { login: false },
-    });
-    router.get('/login', (_req, res) => {
-      res.oidc.login({
-        authorizationParams: {
-          response_type: /** @type {any} */ ('invalid'),
-        },
-      });
-    });
-    const server = createApp(router);
-
-    const res = await request(server).get('/login');
-    expect(res.statusCode, res.text).to.equal(500);
-    expect(res.body.err.message).to.equal('response_type should be one of id_token, code id_token, code');
-  });
-
-  it('should not allow an invalid response_type when txn cookie name custom', async () => {
-    const router = auth({
-      ...defaultConfig,
-      routes: { login: false },
-      transactionCookie: { name: 'CustomTxnCookie' },
-    });
-    router.get('/login', (_req, res) => {
-      res.oidc.login({
-        authorizationParams: {
-          response_type: /** @type {any} */ ('invalid'),
-        },
-      });
-    });
-    const server = createApp(router);
-
-    const res = await request(server).get('/login');
-    expect(res.statusCode, res.text).to.equal(500);
-    expect(res.body.err.message).to.equal('response_type should be one of id_token, code id_token, code');
-  });
-
   it('should use a custom state builder', async () => {
     const server = createApp(
       auth({
@@ -351,26 +296,6 @@ describe('auth', () => {
 
     expect(decodedState.returnTo).to.equal('/custom-page');
     expect(decodedState.customProp).to.equal('__test_custom_prop__');
-  });
-
-  it('default state builder falls back to req.originalUrl as returnTo', () => {
-    expect(defaultState(/** @type {any} */ ({ originalUrl: '/original-url' }), {})).to.deep.equal({ returnTo: '/original-url' });
-  });
-
-  it('should fail with 500 when a custom state builder returns a non-object', async () => {
-    const server = createApp(
-      auth({
-        ...defaultConfig,
-        getLoginState: /** @type {any} */ (
-          () => {
-            return 'not an object';
-          }
-        ),
-      })
-    );
-    const res = await request(server).get('/login');
-    expect(res.statusCode, res.text).to.equal(500);
-    expect(res.body.err.message).to.equal('Custom state value must be an object.');
   });
 
   it('should use PKCE when response_type includes code', async () => {
@@ -471,6 +396,81 @@ describe('auth', () => {
     expect(res.statusCode, res.text).to.equal(302);
 
     expect(fetchAuthCookie(res)).to.include('SameSite=None');
+  });
+
+  it('default state builder falls back to req.originalUrl as returnTo', () => {
+    expect(defaultState(/** @type {any} */ ({ originalUrl: '/original-url' }), {})).to.deep.equal({ returnTo: '/original-url' });
+  });
+
+  it('should not allow removing openid from scope', async () => {
+    const router = auth({ ...defaultConfig, routes: { login: false } });
+    router.get('/login', (_req, res) => {
+      res.oidc.login({
+        authorizationParams: {
+          scope: 'email',
+        },
+      });
+    });
+    const server = createApp(router);
+
+    const res = await request(server).get('/login');
+    expect(res.statusCode, res.text).to.equal(500);
+    expect(res.body.err.message).to.equal('scope should contain "openid"');
+  });
+
+  it('should not allow an invalid response_type', async () => {
+    const router = auth({
+      ...defaultConfig,
+      routes: { login: false },
+    });
+    router.get('/login', (_req, res) => {
+      res.oidc.login({
+        authorizationParams: {
+          response_type: /** @type {any} */ ('invalid'),
+        },
+      });
+    });
+    const server = createApp(router);
+
+    const res = await request(server).get('/login');
+    expect(res.statusCode, res.text).to.equal(500);
+    expect(res.body.err.message).to.equal('response_type should be one of id_token, code id_token, code');
+  });
+
+  it('should not allow an invalid response_type when txn cookie name custom', async () => {
+    const router = auth({
+      ...defaultConfig,
+      routes: { login: false },
+      transactionCookie: { name: 'CustomTxnCookie' },
+    });
+    router.get('/login', (_req, res) => {
+      res.oidc.login({
+        authorizationParams: {
+          response_type: /** @type {any} */ ('invalid'),
+        },
+      });
+    });
+    const server = createApp(router);
+
+    const res = await request(server).get('/login');
+    expect(res.statusCode, res.text).to.equal(500);
+    expect(res.body.err.message).to.equal('response_type should be one of id_token, code id_token, code');
+  });
+
+  it('should fail with 500 when a custom state builder returns a non-object', async () => {
+    const server = createApp(
+      auth({
+        ...defaultConfig,
+        getLoginState: /** @type {any} */ (
+          () => {
+            return 'not an object';
+          }
+        ),
+      })
+    );
+    const res = await request(server).get('/login');
+    expect(res.statusCode, res.text).to.equal(500);
+    expect(res.body.err.message).to.equal('Custom state value must be an object.');
   });
 
   it('should pass discovery errors to the express mw', async () => {

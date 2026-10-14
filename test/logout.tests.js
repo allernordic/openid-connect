@@ -16,22 +16,6 @@ const defaultConfig = {
   authRequired: false,
 };
 
-async function login(agent, idToken, prefixPath = '') {
-  const endpoint = join(prefixPath, '/session');
-  await agent.post(endpoint).send({
-    id_token: idToken || (await makeIdToken()),
-  });
-
-  const session = (await agent.get(endpoint)).body;
-  return { session };
-}
-
-async function logout(agent, prefixPath = '') {
-  const response = await agent.get(join(prefixPath, '/logout'));
-  const session = (await agent.get(join(prefixPath, '/session'))).body;
-  return { response, session };
-}
-
 describe('logout route', () => {
   before(() => {
     setupDiscovery().persist();
@@ -55,19 +39,6 @@ describe('logout route', () => {
     expect(response.headers, 'should redirect to the base url').to.deep.include({
       location: 'http://example.org/',
     });
-  });
-
-  it('should redirect to the identity provider without id_token_hint when not authenticated', async () => {
-    const server = createApp(
-      auth({
-        ...defaultConfig,
-        idpLogout: true,
-      })
-    );
-
-    const response = await request(server).get('/logout');
-    expect(response.statusCode, response.text).to.equal(302);
-    expect(response.headers.location).to.equal('https://op.example.com/session/end?post_logout_redirect_uri=http%3A%2F%2Fexample.org%2F');
   });
 
   it('should perform a distributed logout', async () => {
@@ -204,23 +175,6 @@ describe('logout route', () => {
     expect(new URL(location).searchParams.get('foo')).to.equal('baz');
   });
 
-  it('should pass per request logout params when not authenticated', async () => {
-    const router = auth({
-      ...defaultConfig,
-      idpLogout: true,
-      routes: { logout: false },
-    });
-    const server = createApp(router);
-    router.get('/logout', (_req, res) => res.oidc.logout({ logoutParams: { foo: 'baz' } }));
-
-    const response = await request(server).get('/logout');
-
-    expect(response.statusCode, response.text).to.equal(302);
-    const url = new URL(response.headers.location);
-    expect(url.searchParams.get('foo')).to.equal('baz');
-    expect(url.searchParams.has('id_token_hint')).to.be.false;
-  });
-
   it('should honor logout url config over logout params', async () => {
     const server = createApp(
       auth({
@@ -292,6 +246,36 @@ describe('logout route', () => {
     expect(new URL(location).searchParams.get('id_token_hint')).to.not.be.ok;
   });
 
+  it('should redirect to the identity provider without id_token_hint when not authenticated', async () => {
+    const server = createApp(
+      auth({
+        ...defaultConfig,
+        idpLogout: true,
+      })
+    );
+
+    const response = await request(server).get('/logout');
+    expect(response.statusCode, response.text).to.equal(302);
+    expect(response.headers.location).to.equal('https://op.example.com/session/end?post_logout_redirect_uri=http%3A%2F%2Fexample.org%2F');
+  });
+
+  it('should pass per request logout params when not authenticated', async () => {
+    const router = auth({
+      ...defaultConfig,
+      idpLogout: true,
+      routes: { logout: false },
+    });
+    const server = createApp(router);
+    router.get('/logout', (_req, res) => res.oidc.logout({ logoutParams: { foo: 'baz' } }));
+
+    const response = await request(server).get('/logout');
+
+    expect(response.statusCode, response.text).to.equal(302);
+    const url = new URL(response.headers.location);
+    expect(url.searchParams.get('foo')).to.equal('baz');
+    expect(url.searchParams.has('id_token_hint')).to.be.false;
+  });
+
   it('should pass discovery errors to the express mw', async () => {
     nock('https://example.com').get('/.well-known/openid-configuration').reply(500, 'Internal Server Error');
 
@@ -310,3 +294,19 @@ describe('logout route', () => {
     );
   });
 });
+
+async function login(agent, idToken, prefixPath = '') {
+  const endpoint = join(prefixPath, '/session');
+  await agent.post(endpoint).send({
+    id_token: idToken || (await makeIdToken()),
+  });
+
+  const session = (await agent.get(endpoint)).body;
+  return { session };
+}
+
+async function logout(agent, prefixPath = '') {
+  const response = await agent.get(join(prefixPath, '/logout'));
+  const session = (await agent.get(join(prefixPath, '/session'))).body;
+  return { response, session };
+}

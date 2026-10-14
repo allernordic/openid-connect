@@ -1,18 +1,16 @@
 import { promisify } from 'node:util';
 
 /**
- * Express-session compatible session store base class.
+ * Express-session compatible session store base class, for callback based session stores.
  *
  * Session store factories that expect the express-session module can be instantiated
- * with `auth`, which exposes this class as `auth.Store`. Stores extending this class
- * are considered callback based and are promisified by `getConfig`.
+ * with `auth`, which exposes this class as `auth.Store`.
  * @constructor
  */
 export function Store() {}
 
 /**
- * Promisify an express-session compatible, callback based, session store.
- * Stores that don't extend `Store` are assumed to be promise based and returned as-is.
+ * Get a promise based interface to a session store
  * @param {any} store
  * @returns {any} promise based session store
  */

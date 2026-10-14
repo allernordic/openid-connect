@@ -13,14 +13,13 @@ export async function isLoggedOut(req, config) {
   } = await getClient(config);
   const { sid, sub } = req.oidc.idTokenClaims;
 
-  // Normalize issuer URL to handle trailing slashes consistently
   const normalizedIssuer = issuer.endsWith('/') ? issuer.slice(0, -1) : issuer;
 
   if (!sid && !sub) {
     throw new Error(`The session must have a 'sid' or a 'sub'`);
   }
 
-  // Try both normalized and non-normalized issuer URLs to handle inconsistencies
+  // entries may be keyed by the issuer with or without a trailing slash
   const [logoutSid, logoutSidAlt, logoutSub, logoutSubAlt] = await Promise.all([
     sid && store.get(`${normalizedIssuer}|${sid}`),
     sid && store.get(`${normalizedIssuer}/|${sid}`),

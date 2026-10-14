@@ -150,7 +150,7 @@ All options are validated with a schema when `auth()` is called; an invalid or m
     - `transient`: omit the cookie expiry so the browser drops it when closed, default `false`
     - `httpOnly`: hide the cookie from client side scripts, default `true`
     - `sameSite`: `lax`, `strict` or `none`, default `Lax`. With `none` you need your own CSRF protection
-    - `secure`: default `true` for an `https` `baseURL`. Must be `false` for an `http` `baseURL`, since secure cookies are not sent over plain http. Setting it to `false` over https logs a warning
+    - `secure`: default `true` for an `https` or `'autodetect'` `baseURL`. Must be `false` for an `http` `baseURL`, since secure cookies are not sent over plain http. Setting it to `false` over https or with `'autodetect'` logs a warning. Autodetect does not derive it from the request, so a misconfigured `trust proxy` cannot strip `Secure`; serving autodetect over plain http (other than `localhost`, which browsers treat as secure) requires `secure: false`
 - `transactionCookie`: the short lived cookie that carries `state`, `nonce` and the PKCE verifier between the login redirect and the callback
   - `name`: cookie name, default `auth_verification`
   - `sameSite`: `Lax`, `Strict` or `None`, defaults to `session.cookie.sameSite`. `response_mode: 'form_post'` forces `None` on this cookie

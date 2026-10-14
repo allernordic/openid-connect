@@ -9,29 +9,6 @@ import { setupDiscovery, setupJwks } from '../helpers/openid-helper.js';
 const ISSUER = 'https://op.example.com';
 const AUDIENCE = '__test_api__';
 
-const errorHandler = /** @type {import('express').ErrorRequestHandler} */ (
-  (err, _req, res, next) => {
-    if (res.headersSent) return next(err);
-    res
-      .set(err.headers)
-      .status(err.statusCode || 500)
-      .json({ message: err.message });
-  }
-);
-
-/**
- * Minimal JSON API protected by the middleware under test
- * @param {Partial<Parameters<typeof requiresBearerAuth>[0]>} [params]
- */
-function createApi(params) {
-  const app = express();
-  app.get('/api', requiresBearerAuth({ issuerBaseURL: ISSUER, audience: AUDIENCE, ...params }), (req, res) => {
-    res.json({ sub: req.bearerAuth?.payload.sub ?? null });
-  });
-  app.use(errorHandler);
-  return app;
-}
-
 Feature('Bearer authentication', () => {
   Scenario('a JSON API protected by bearer tokens', () => {
     before(() => {
@@ -102,148 +79,6 @@ Feature('Bearer authentication', () => {
     Then('it is rejected with 401 and an invalid_token challenge', () => {
       expect(response.status).to.equal(401);
       expect(response.headers['www-authenticate']).to.equal('Bearer error="invalid_token"');
-    });
-  });
-
-  Scenario('an API configured with a clock tolerance', () => {
-    before(() => {
-      setupDiscovery().persist();
-      setupJwks();
-    });
-    after(nock.cleanAll);
-
-    /** @type {import('express').Application} */
-    let app;
-    Given('an API protected by requiresBearerAuth with a clockTolerance of 3660 seconds', () => {
-      app = createApi({ clockTolerance: 3660 });
-    });
-
-    /** @type {import('supertest').Response} */
-    let response;
-    When('a request presents a token that expired an hour ago', async () => {
-      const epoch = Math.floor(Date.now() / 1000);
-      const token = await makeIdToken({ aud: AUDIENCE, iat: epoch - 7200, exp: epoch - 3600 });
-      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('it is accepted since the expiry is within the tolerance', () => {
-      expect(response.status).to.equal(200);
-    });
-  });
-
-  Scenario('issuer discovery fails on the first request', () => {
-    after(nock.cleanAll);
-
-    /** @type {import('express').Application} */
-    let app;
-    /** @type {string} */
-    let token;
-    Given('an API whose issuer discovery endpoint is unreachable', () => {
-      app = createApi();
-    });
-
-    /** @type {import('supertest').Response} */
-    let response;
-    When('a request presents a valid bearer token', async () => {
-      token = await makeIdToken({ aud: AUDIENCE });
-      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('it is rejected with 401', () => {
-      expect(response.status).to.equal(401);
-    });
-
-    When('the issuer becomes reachable and the request is retried', async () => {
-      setupDiscovery();
-      setupJwks();
-      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('the failed discovery was not cached and the retry succeeds', () => {
-      expect(response.status).to.equal(200);
-    });
-  });
-
-  Scenario('an issuer with a tenant path component', () => {
-    const issuer = 'https://op.example.com/tenant';
-    after(nock.cleanAll);
-
-    /** @type {import('express').Application} */
-    let app;
-    Given('an API configured with a tenanted issuerBaseURL', () => {
-      setupDiscovery(issuer);
-      setupJwks(issuer);
-      app = createApi({ issuerBaseURL: issuer });
-    });
-
-    /** @type {import('supertest').Response} */
-    let response;
-    When('a request presents a token from the tenanted issuer', async () => {
-      const token = await makeIdToken({ aud: AUDIENCE, iss: issuer });
-      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('discovery resolves under the tenant path and the request succeeds', () => {
-      expect(response.status).to.equal(200);
-    });
-  });
-
-  Scenario('an issuerBaseURL with a trailing slash', () => {
-    after(nock.cleanAll);
-
-    /** @type {import('express').Application} */
-    let app;
-    Given('an API configured with a trailing-slash issuerBaseURL', () => {
-      setupDiscovery();
-      setupJwks();
-      app = createApi({ issuerBaseURL: `${ISSUER}/` });
-    });
-
-    /** @type {import('supertest').Response} */
-    let response;
-    When('a request presents a valid bearer token', async () => {
-      const token = await makeIdToken({ aud: AUDIENCE });
-      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('the request succeeds', () => {
-      expect(response.status).to.equal(200);
-    });
-  });
-
-  Scenario('the issuer serves invalid discovery documents', () => {
-    after(nock.cleanAll);
-
-    /** @type {import('supertest').Response} */
-    let response;
-    When('discovery responds with an error status', async () => {
-      nock(ISSUER).get('/.well-known/openid-configuration').reply(500);
-      const token = await makeIdToken({ aud: AUDIENCE });
-      response = await request(createApi()).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('the request is rejected with 401', () => {
-      expect(response.status).to.equal(401);
-    });
-
-    When('the discovery document lacks an issuer', async () => {
-      setupDiscovery(undefined, { issuer: undefined });
-      const token = await makeIdToken({ aud: AUDIENCE });
-      response = await request(createApi()).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('the request is also rejected with 401', () => {
-      expect(response.status).to.equal(401);
-    });
-
-    When('the discovery document lacks a JWKS URI', async () => {
-      setupDiscovery(undefined, { jwks_uri: undefined });
-      const token = await makeIdToken({ aud: AUDIENCE });
-      response = await request(createApi()).get('/api').set('authorization', `Bearer ${token}`);
-    });
-
-    Then('the request is rejected with 401 as well', () => {
-      expect(response.status).to.equal(401);
     });
   });
 
@@ -372,6 +207,148 @@ Feature('Bearer authentication', () => {
     });
   });
 
+  Scenario('an API configured with a clock tolerance', () => {
+    before(() => {
+      setupDiscovery().persist();
+      setupJwks();
+    });
+    after(nock.cleanAll);
+
+    /** @type {import('express').Application} */
+    let app;
+    Given('an API protected by requiresBearerAuth with a clockTolerance of 3660 seconds', () => {
+      app = createApi({ clockTolerance: 3660 });
+    });
+
+    /** @type {import('supertest').Response} */
+    let response;
+    When('a request presents a token that expired an hour ago', async () => {
+      const epoch = Math.floor(Date.now() / 1000);
+      const token = await makeIdToken({ aud: AUDIENCE, iat: epoch - 7200, exp: epoch - 3600 });
+      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('it is accepted since the expiry is within the tolerance', () => {
+      expect(response.status).to.equal(200);
+    });
+  });
+
+  Scenario('an issuer with a tenant path component', () => {
+    const issuer = 'https://op.example.com/tenant';
+    after(nock.cleanAll);
+
+    /** @type {import('express').Application} */
+    let app;
+    Given('an API configured with a tenanted issuerBaseURL', () => {
+      setupDiscovery(issuer);
+      setupJwks(issuer);
+      app = createApi({ issuerBaseURL: issuer });
+    });
+
+    /** @type {import('supertest').Response} */
+    let response;
+    When('a request presents a token from the tenanted issuer', async () => {
+      const token = await makeIdToken({ aud: AUDIENCE, iss: issuer });
+      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('discovery resolves under the tenant path and the request succeeds', () => {
+      expect(response.status).to.equal(200);
+    });
+  });
+
+  Scenario('an issuerBaseURL with a trailing slash', () => {
+    after(nock.cleanAll);
+
+    /** @type {import('express').Application} */
+    let app;
+    Given('an API configured with a trailing-slash issuerBaseURL', () => {
+      setupDiscovery();
+      setupJwks();
+      app = createApi({ issuerBaseURL: `${ISSUER}/` });
+    });
+
+    /** @type {import('supertest').Response} */
+    let response;
+    When('a request presents a valid bearer token', async () => {
+      const token = await makeIdToken({ aud: AUDIENCE });
+      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('the request succeeds', () => {
+      expect(response.status).to.equal(200);
+    });
+  });
+
+  Scenario('issuer discovery fails on the first request', () => {
+    after(nock.cleanAll);
+
+    /** @type {import('express').Application} */
+    let app;
+    /** @type {string} */
+    let token;
+    Given('an API whose issuer discovery endpoint is unreachable', () => {
+      app = createApi();
+    });
+
+    /** @type {import('supertest').Response} */
+    let response;
+    When('a request presents a valid bearer token', async () => {
+      token = await makeIdToken({ aud: AUDIENCE });
+      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('it is rejected with 401', () => {
+      expect(response.status).to.equal(401);
+    });
+
+    When('the issuer becomes reachable and the request is retried', async () => {
+      setupDiscovery();
+      setupJwks();
+      response = await request(app).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('the failed discovery was not cached and the retry succeeds', () => {
+      expect(response.status).to.equal(200);
+    });
+  });
+
+  Scenario('the issuer serves invalid discovery documents', () => {
+    after(nock.cleanAll);
+
+    /** @type {import('supertest').Response} */
+    let response;
+    When('discovery responds with an error status', async () => {
+      nock(ISSUER).get('/.well-known/openid-configuration').reply(500);
+      const token = await makeIdToken({ aud: AUDIENCE });
+      response = await request(createApi()).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('the request is rejected with 401', () => {
+      expect(response.status).to.equal(401);
+    });
+
+    When('the discovery document lacks an issuer', async () => {
+      setupDiscovery(undefined, { issuer: undefined });
+      const token = await makeIdToken({ aud: AUDIENCE });
+      response = await request(createApi()).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('the request is also rejected with 401', () => {
+      expect(response.status).to.equal(401);
+    });
+
+    When('the discovery document lacks a JWKS URI', async () => {
+      setupDiscovery(undefined, { jwks_uri: undefined });
+      const token = await makeIdToken({ aud: AUDIENCE });
+      response = await request(createApi()).get('/api').set('authorization', `Bearer ${token}`);
+    });
+
+    Then('the request is rejected with 401 as well', () => {
+      expect(response.status).to.equal(401);
+    });
+  });
+
   Scenario('invalid configuration', () => {
     Then('requiresBearerAuth throws when called without params', () => {
       // @ts-ignore
@@ -393,3 +370,25 @@ Feature('Bearer authentication', () => {
     });
   });
 });
+
+/**
+ * Minimal JSON API protected by the middleware under test
+ * @param {Partial<Parameters<typeof requiresBearerAuth>[0]>} [params]
+ */
+function createApi(params) {
+  const app = express();
+  app.get('/api', requiresBearerAuth({ issuerBaseURL: ISSUER, audience: AUDIENCE, ...params }), (req, res) => {
+    res.json({ sub: req.bearerAuth?.payload.sub ?? null });
+  });
+  app.use(errorHandler);
+  return app;
+}
+
+/** @type {import('express').ErrorRequestHandler} */
+function errorHandler(err, _req, res, next) {
+  if (res.headersSent) return next(err);
+  res
+    .set(err.headers)
+    .status(err.statusCode || 500)
+    .json({ message: err.message });
+}

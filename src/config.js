@@ -71,7 +71,7 @@ const paramsSchema = Joi.object({
       httpOnly: Joi.boolean().optional().default(true),
       sameSite: Joi.string().valid('lax', 'strict', 'none').lowercase().optional().default('Lax'),
       secure: Joi.when(Joi.ref('/baseURL'), {
-        is: Joi.string().pattern(isHttps),
+        is: Joi.alternatives(Joi.string().pattern(isHttps), Joi.string().valid(BASE_URL_AUTODETECT)),
         then: Joi.boolean()
           .default(true)
           .custom((value, { warn }) => {
@@ -79,7 +79,8 @@ const paramsSchema = Joi.object({
             return value;
           })
           .messages({
-            'insecure.cookie': "Setting your cookie to insecure when over https is not recommended, I hope you know what you're doing.",
+            'insecure.cookie':
+              "Setting your cookie to insecure when over https or with autodetected baseURL is not recommended, I hope you know what you're doing.",
           }),
         otherwise: Joi.boolean().valid(false).default(false).messages({
           'any.only': 'Cookies set with the `Secure` property wont be attached to http requests',
@@ -243,7 +244,6 @@ export function getConfig(config) {
   if (value.session?.store) {
     value.session.store = promisifyStore(value.session.store);
   }
-  // normalize to an options object, or undefined when disabled
   if (typeof value.backchannelLogout === 'boolean') {
     value.backchannelLogout = value.backchannelLogout ? {} : undefined;
   }

@@ -1,7 +1,7 @@
 import { getClient } from '../../client.js';
 
 /**
- * Remove any Back-Channel Logout tokens for this `sub` and `sid`
+ * Default hook that clears earlier Back-Channel Logouts for the user logging in
  * @param {import('express').Request} req
  * @param {import('types').ConfigParams} config
  */
@@ -13,13 +13,11 @@ export async function onLogIn(req, config) {
   // @ts-ignore
   const store = backchannelLogout?.store || session.store;
 
-  // Get the sub and sid from the ID token claims
   const { sub, sid } = req.oidc.idTokenClaims;
 
-  // Normalize issuer URL to handle trailing slashes consistently
   const normalizedIssuer = issuer.endsWith('/') ? issuer.slice(0, -1) : issuer;
 
-  // Remove both sub and sid based entries for both normalized and non-normalized issuer URLs
+  // entries may be keyed by the issuer with or without a trailing slash
   const keys = [
     `${normalizedIssuer}|${sub}`,
     `${normalizedIssuer}/|${sub}`,

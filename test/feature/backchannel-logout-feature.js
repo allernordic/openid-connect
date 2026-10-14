@@ -144,6 +144,62 @@ Feature('Backchannel logout', () => {
     });
   });
 
+  Scenario('clock tolerance is set to zero', () => {
+    /** @type {import('express').Application} */
+    let strictApp;
+    Given('openid is configured on app without clock tolerance', () => {
+      setupDiscovery();
+      setupJwks();
+
+      strictApp = createApp(
+        auth({
+          secret: '__test_session_secret__',
+          clientID: '__test_client_id__',
+          baseURL: 'http://example.local',
+          issuerBaseURL: 'https://op.example.com',
+          authRequired: false,
+          session: { store: new CustomStore() },
+          discoveryCacheMaxAge: 24 * 3600 * 1000,
+          backchannelLogout: true,
+          clockTolerance: 0,
+        }),
+        requiresAuth()
+      );
+    });
+
+    /** @type {string} */
+    let logoutToken;
+    And('a logout token that expired ten seconds ago', async () => {
+      const now = Math.floor(Date.now() / 1000);
+      logoutToken = await makeProperLogoutToken({ payload: { sid: randomUUID(), iat: now - 120, exp: now - 10 } });
+    });
+
+    /** @type {import('supertest').Response} */
+    let response;
+    When('openid server calls backchannel logout on the app with default clock tolerance', async () => {
+      response = await request(app)
+        .post('/backchannel-logout')
+        .set('content-type', 'application/x-www-form-urlencoded')
+        .send(new URLSearchParams({ logout_token: logoutToken }).toString());
+    });
+
+    Then('the token is accepted', () => {
+      expect(response.statusCode, response.text).to.equal(204);
+    });
+
+    When('openid server calls backchannel logout on the app without clock tolerance', async () => {
+      response = await request(strictApp)
+        .post('/backchannel-logout')
+        .set('content-type', 'application/x-www-form-urlencoded')
+        .send(new URLSearchParams({ logout_token: logoutToken }).toString());
+    });
+
+    Then('bad request is returned', () => {
+      expect(response.statusCode, response.text).to.equal(400);
+      expect(response.body).to.have.property('error', 'invalid_token');
+    });
+  });
+
   Scenario('logout token is of the wrong type', () => {
     /** @type {import('supertest').Response} */
     let response;
@@ -278,62 +334,6 @@ Feature('Backchannel logout', () => {
     Then('internal server error is returned', () => {
       expect(response.statusCode, response.text).to.equal(500);
       expect(response.body).to.have.property('error', 'server_error');
-    });
-  });
-
-  Scenario('clock tolerance is set to zero', () => {
-    /** @type {import('express').Application} */
-    let strictApp;
-    Given('openid is configured on app without clock tolerance', () => {
-      setupDiscovery();
-      setupJwks();
-
-      strictApp = createApp(
-        auth({
-          secret: '__test_session_secret__',
-          clientID: '__test_client_id__',
-          baseURL: 'http://example.local',
-          issuerBaseURL: 'https://op.example.com',
-          authRequired: false,
-          session: { store: new CustomStore() },
-          discoveryCacheMaxAge: 24 * 3600 * 1000,
-          backchannelLogout: true,
-          clockTolerance: 0,
-        }),
-        requiresAuth()
-      );
-    });
-
-    /** @type {string} */
-    let logoutToken;
-    And('a logout token that expired ten seconds ago', async () => {
-      const now = Math.floor(Date.now() / 1000);
-      logoutToken = await makeProperLogoutToken({ payload: { sid: randomUUID(), iat: now - 120, exp: now - 10 } });
-    });
-
-    /** @type {import('supertest').Response} */
-    let response;
-    When('openid server calls backchannel logout on the app with default clock tolerance', async () => {
-      response = await request(app)
-        .post('/backchannel-logout')
-        .set('content-type', 'application/x-www-form-urlencoded')
-        .send(new URLSearchParams({ logout_token: logoutToken }).toString());
-    });
-
-    Then('the token is accepted', () => {
-      expect(response.statusCode, response.text).to.equal(204);
-    });
-
-    When('openid server calls backchannel logout on the app without clock tolerance', async () => {
-      response = await request(strictApp)
-        .post('/backchannel-logout')
-        .set('content-type', 'application/x-www-form-urlencoded')
-        .send(new URLSearchParams({ logout_token: logoutToken }).toString());
-    });
-
-    Then('bad request is returned', () => {
-      expect(response.statusCode, response.text).to.equal(400);
-      expect(response.body).to.have.property('error', 'invalid_token');
     });
   });
 

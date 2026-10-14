@@ -15,9 +15,10 @@ import { requiresAuth } from './requiresAuth.js';
 const debug = Debug('');
 
 /**
- * Returns a router with two routes /login and /callback
+ * OpenID Connect authentication router: manages the session, handles login, logout and callback,
+ * and protects the routes mounted after it unless `authRequired` is `false`
  *
- * @param {Partial<import('types').ConfigParams>} [params] The parameters object; see index.d.ts for types and descriptions.
+ * @param {Partial<import('types').ConfigParams>} [params] configuration
  *
  * @returns {express.Router} the router
  */
@@ -29,14 +30,12 @@ export function auth(params) {
 
   router.use(appSession(config));
 
-  // Express context and OpenID Issuer discovery.
   router.use((req, res, next) => {
     req.oidc = new RequestContext(config, req, res);
     res.oidc = new ResponseContext(config, req, res, next, transient);
     next();
   });
 
-  // Login route, configurable with routes.login
   if (config.routes.login) {
     const path = enforceLeadingSlash(config.routes.login);
     debug(`adding GET ${path} route`);
@@ -45,7 +44,6 @@ export function auth(params) {
     debug('login handling route not applied');
   }
 
-  // Logout route, configurable with routes.logout
   if (config.routes.logout) {
     const path = enforceLeadingSlash(config.routes.logout);
     debug(`adding GET ${path} route`);
@@ -54,7 +52,6 @@ export function auth(params) {
     debug('logout handling route not applied');
   }
 
-  // Callback route, configured with routes.callback.
   if (config.routes.callback) {
     const path = enforceLeadingSlash(config.routes.callback);
     debug(`adding GET ${path} route`);
@@ -87,7 +84,7 @@ export function auth(params) {
 }
 
 /**
- * Apply backchannel logout route
+ * Mount the Back-Channel Logout route
  * @param {import('types').ConfigParams} config
  * @param {import('express').Router} router
  */
@@ -103,7 +100,7 @@ function backchannelLogoutRoute(config, router) {
 }
 
 /**
- * Backchannel is logged out middleware
+ * End sessions that were logged out via Back-Channel Logout
  * @param {import('types').ConfigParams} config
  * @param {import('express').Router} router
  */
@@ -140,6 +137,7 @@ function backchannelIsLoggedOutMiddleware(config, router) {
 auth.Store = Store;
 
 /**
+ * Ensure a route path starts with a slash
  * @param {string} path endpoint path
  * @returns {string} endpoint path with leading slash
  */

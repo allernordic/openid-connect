@@ -9,8 +9,6 @@ import { TransientCookieHandler } from '../src/transientHandler.js';
 
 import * as legacyCrypto from './helpers/legacy-crypto.js';
 
-/** @returns {any} */
-const reqWithCookies = (cookies) => ({ [COOKIES]: cookies });
 const secret = '__test_session_secret__';
 const defaultConfig = getConfig({
   baseURL: 'http://localhost',
@@ -217,3 +215,8 @@ describe('transientHandler', () => {
     });
   });
 });
+
+/** @returns {any} */
+function reqWithCookies(cookies) {
+  return { [COOKIES]: cookies };
+}

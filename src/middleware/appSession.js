@@ -44,6 +44,7 @@ export function appSession(config) {
 }
 
 /**
+ * Expose session data on the request as `req[sessionName]`
  * @param {import('express').Request} req
  * @param {string} sessionName
  */
@@ -64,7 +65,7 @@ function attachSessionObject(req, sessionName) {
 }
 
 /**
- * Response.end override function to store session
+ * Save the session to the custom store before the response ends
  * @param {CustomCookieStore|DefaultCookieStore} store cookie store
  * @param {import('express').Request} req
  * @param {import('express').Response} res

@@ -236,7 +236,7 @@ export class DefaultCookieStore {
   }
 
   /**
-   * Regenerate session cookie value
+   * Generate session cookie value
    * @param {import('express').Request} req
    */
   async #generateSessionCookie(req) {

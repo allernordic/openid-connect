@@ -25,17 +25,6 @@ const defaultConfig = {
   authRequired: false,
 };
 
-/**
- * Generate transient transaction cookie value
- * @param {Record<string, string | number>} value
- * @param {string} [cookieName]
- * @param {string} [secret]
- */
-function generateTransactionCookie(value, cookieName = 'auth_verification', secret) {
-  const [key] = getSigningKeyStore(secret ?? defaultConfig.secret);
-  return signCookie(cookieName, JSON.stringify(value), key);
-}
-
 describe('callback response_mode: form_post', () => {
   beforeEach(() => {
     setupDiscovery();
@@ -43,198 +32,6 @@ describe('callback response_mode: form_post', () => {
   afterEach(() => {
     mock.timers.reset();
     nock.cleanAll();
-  });
-
-  it('should error when the body is empty', async () => {
-    const app = createApp(auth(defaultConfig));
-
-    const response = await request(app).post('/callback');
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err?.message).to.be.ok;
-  });
-
-  it('should error when the state cookie is missing', async () => {
-    const app = createApp(auth(defaultConfig));
-    const response = await request(app).post('/callback').send({
-      state: '__test_state__',
-      id_token: '__invalid_token__',
-      code: randomUUID(),
-    });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err?.code).to.equal('OAUTH_INVALID_RESPONSE');
-  });
-
-  it("should error when state doesn't match", async () => {
-    const app = createApp(auth(defaultConfig));
-
-    const vercookie = await generateTransactionCookie({ state: '__valid_state__', nonce: '__test_nonce__' });
-
-    const response = await request(app).post('/callback').set('Cookie', `auth_verification=${vercookie}`).send({
-      state: '__invalid_state__',
-      code: randomUUID(),
-    });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err?.code).to.equal('OAUTH_INVALID_RESPONSE');
-  });
-
-  it("should error when id_token can't be parsed (implicit and hybrid unsupported)", async () => {
-    const app = createApp(auth(defaultConfig));
-
-    const vercookie = await generateTransactionCookie({ state: '__test_state__', nonce: '__test_nonce__' });
-
-    const response = await request(app).post('/callback').set('Cookie', `auth_verification=${vercookie}`).send({
-      state: '__test_state__',
-      code: randomUUID(),
-      id_token: '__invalid_token__',
-    });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
-  });
-
-  it('should error when id_token has invalid alg (implicit and hybrid unsupported)', async () => {
-    const app = createApp(auth(defaultConfig));
-
-    const vercookie = await generateTransactionCookie({ state: '__test_state__', nonce: '__test_nonce__' });
-
-    const response = await request(app)
-      .post('/callback')
-      .set('Cookie', `auth_verification=${vercookie}`)
-      .send({
-        state: '__test_state__',
-        code: randomUUID(),
-        id_token: JWT.sign({ sub: '__test_sub__' }, 'secret', {
-          algorithm: 'HS256',
-        }),
-      });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
-  });
-
-  it('should error when id_token is missing issuer (implicit and hybrid unsupported)', async () => {
-    // const { response } = await setup({
-    //   cookies: generateCookies({
-    //     nonce: '__test_nonce__',
-    //     state: '__test_state__',
-    //   }),
-    //   body: {
-    //     state: '__test_state__',
-    //     code: randomUUID(),
-    //     id_token: await makeIdToken({ iss: undefined }),
-    //   },
-    // });
-    // expect(response.statusCode, response.text).to.equal(400);
-    // expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
-
-    const app = createApp(auth(defaultConfig));
-
-    const vercookie = await generateTransactionCookie({ state: '__test_state__', nonce: '__test_nonce__' });
-
-    const response = await request(app)
-      .post('/callback')
-      .set('Cookie', `auth_verification=${vercookie}`)
-      .send({
-        state: '__test_state__',
-        code: randomUUID(),
-        id_token: await makeIdToken({ iss: undefined }),
-      });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
-  });
-
-  it('should error when nonce is missing from cookies (implicit and hybrid unsupported)', async () => {
-    const app = createApp(auth(defaultConfig));
-
-    const vercookie = await generateTransactionCookie({ state: '__test_state__' });
-
-    const response = await request(app)
-      .post('/callback')
-      .set('Cookie', `auth_verification=${vercookie}`)
-      .send({
-        state: '__test_state__',
-        code: randomUUID(),
-        id_token: await makeIdToken(),
-      });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
-  });
-
-  it('should error when legacy samesite fallback is off', async () => {
-    const app = createApp(auth({ ...defaultConfig, legacySameSiteCookie: false }));
-
-    const vercookie = await generateTransactionCookie({ state: '__test_state__' }, '_auth_verification');
-
-    const response = await request(app)
-      .post('/callback')
-      .set('Cookie', `_auth_verification=${vercookie}`)
-      .send({
-        state: '__test_state__',
-        code: randomUUID(),
-        id_token: await makeIdToken(),
-      });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err.code).to.equal('OAUTH_INVALID_RESPONSE');
-  });
-
-  it('should include oauth error properties in error', async () => {
-    const app = createApp(auth(defaultConfig));
-
-    const response = await request(app).post('/callback').send({
-      error: 'foo',
-      error_description: 'bar',
-      code: 'TEST_CODE',
-    });
-
-    expect(response.statusCode, response.text).to.equal(400);
-    expect(response.body.err?.error).to.equal('foo');
-    expect(response.body.err?.error_description).to.equal('bar');
-  });
-
-  it('should use legacy samesite fallback', async () => {
-    setupJwks();
-
-    const agent = request.agent(
-      createApp(
-        auth({
-          ...defaultConfig,
-          clientSecret: '__test_client_secret__',
-          authorizationParams: {
-            response_type: 'code id_token',
-          },
-        })
-      )
-    );
-
-    const idToken = await makeIdToken({
-      c_hash: '77QmUPtjPfzWtF2AnpK9RQ',
-    });
-
-    nock('https://op.example.com/').post('/oauth/token').query(true).reply(200, {
-      access_token: '__test_access_token__',
-      refresh_token: '__test_refresh_token__',
-      id_token: idToken,
-      token_type: 'bearer',
-      expires_in: 86400,
-    });
-
-    const sameSiteVercookie = await generateTransactionCookie(
-      { state: expectedDefaultState, nonce: '__test_nonce__' },
-      '_auth_verification'
-    );
-
-    const response = await agent.post('/callback').set('Cookie', `_auth_verification=${sameSiteVercookie}`).send({
-      state: expectedDefaultState,
-      code: 'jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y',
-      id_token: idToken,
-    });
-
-    expect(response.statusCode, response.text).to.equal(302);
   });
 
   it("should expose all tokens when id_token is valid and response_type is 'code id_token'", async () => {
@@ -883,6 +680,53 @@ describe('callback response_mode: form_post', () => {
     expect(response.headers.location).to.equal('https://example.org');
   });
 
+  it('should accept a recent auth_time when the transaction carries max_age', async () => {
+    const response = await hybridCallback({ auth_time: Math.floor(Date.now() / 1000) - 60 }, { max_age: 3600 });
+
+    expect(response.statusCode, response.text).to.equal(302);
+  });
+
+  it('should use legacy samesite fallback', async () => {
+    setupJwks();
+
+    const agent = request.agent(
+      createApp(
+        auth({
+          ...defaultConfig,
+          clientSecret: '__test_client_secret__',
+          authorizationParams: {
+            response_type: 'code id_token',
+          },
+        })
+      )
+    );
+
+    const idToken = await makeIdToken({
+      c_hash: '77QmUPtjPfzWtF2AnpK9RQ',
+    });
+
+    nock('https://op.example.com/').post('/oauth/token').query(true).reply(200, {
+      access_token: '__test_access_token__',
+      refresh_token: '__test_refresh_token__',
+      id_token: idToken,
+      token_type: 'bearer',
+      expires_in: 86400,
+    });
+
+    const sameSiteVercookie = await generateTransactionCookie(
+      { state: expectedDefaultState, nonce: '__test_nonce__' },
+      '_auth_verification'
+    );
+
+    const response = await agent.post('/callback').set('Cookie', `_auth_verification=${sameSiteVercookie}`).send({
+      state: expectedDefaultState,
+      code: 'jHkWEdUXMU1BwAsC4vtUsZwnNvTIxEl0z9K3vx5KF0Y',
+      id_token: idToken,
+    });
+
+    expect(response.statusCode, response.text).to.equal(302);
+  });
+
   it('should redirect to baseURL when a custom state lacks returnTo', async () => {
     const response = await hybridCallback({}, { state: encodeState({ customProp: '__test_custom_prop__' }) });
 
@@ -890,17 +734,162 @@ describe('callback response_mode: form_post', () => {
     expect(response.headers.location).to.equal('http://example.local');
   });
 
-  it('should require auth_time when the transaction carries max_age', async () => {
-    const response = await hybridCallback({}, { max_age: 3600 });
+  it('should error when the body is empty', async () => {
+    const app = createApp(auth(defaultConfig));
+
+    const response = await request(app).post('/callback');
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err?.message).to.be.ok;
+  });
+
+  it('should error when the state cookie is missing', async () => {
+    const app = createApp(auth(defaultConfig));
+    const response = await request(app).post('/callback').send({
+      state: '__test_state__',
+      id_token: '__invalid_token__',
+      code: randomUUID(),
+    });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err?.code).to.equal('OAUTH_INVALID_RESPONSE');
+  });
+
+  it("should error when state doesn't match", async () => {
+    const app = createApp(auth(defaultConfig));
+
+    const vercookie = await generateTransactionCookie({ state: '__valid_state__', nonce: '__test_nonce__' });
+
+    const response = await request(app).post('/callback').set('Cookie', `auth_verification=${vercookie}`).send({
+      state: '__invalid_state__',
+      code: randomUUID(),
+    });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err?.code).to.equal('OAUTH_INVALID_RESPONSE');
+  });
+
+  it("should error when id_token can't be parsed (implicit and hybrid unsupported)", async () => {
+    const app = createApp(auth(defaultConfig));
+
+    const vercookie = await generateTransactionCookie({ state: '__test_state__', nonce: '__test_nonce__' });
+
+    const response = await request(app).post('/callback').set('Cookie', `auth_verification=${vercookie}`).send({
+      state: '__test_state__',
+      code: randomUUID(),
+      id_token: '__invalid_token__',
+    });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
+  });
+
+  it('should error when id_token has invalid alg (implicit and hybrid unsupported)', async () => {
+    const app = createApp(auth(defaultConfig));
+
+    const vercookie = await generateTransactionCookie({ state: '__test_state__', nonce: '__test_nonce__' });
+
+    const response = await request(app)
+      .post('/callback')
+      .set('Cookie', `auth_verification=${vercookie}`)
+      .send({
+        state: '__test_state__',
+        code: randomUUID(),
+        id_token: JWT.sign({ sub: '__test_sub__' }, 'secret', {
+          algorithm: 'HS256',
+        }),
+      });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
+  });
+
+  it('should error when id_token is missing issuer (implicit and hybrid unsupported)', async () => {
+    // const { response } = await setup({
+    //   cookies: generateCookies({
+    //     nonce: '__test_nonce__',
+    //     state: '__test_state__',
+    //   }),
+    //   body: {
+    //     state: '__test_state__',
+    //     code: randomUUID(),
+    //     id_token: await makeIdToken({ iss: undefined }),
+    //   },
+    // });
+    // expect(response.statusCode, response.text).to.equal(400);
+    // expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
+
+    const app = createApp(auth(defaultConfig));
+
+    const vercookie = await generateTransactionCookie({ state: '__test_state__', nonce: '__test_nonce__' });
+
+    const response = await request(app)
+      .post('/callback')
+      .set('Cookie', `auth_verification=${vercookie}`)
+      .send({
+        state: '__test_state__',
+        code: randomUUID(),
+        id_token: await makeIdToken({ iss: undefined }),
+      });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
+  });
+
+  it('should error when nonce is missing from cookies (implicit and hybrid unsupported)', async () => {
+    const app = createApp(auth(defaultConfig));
+
+    const vercookie = await generateTransactionCookie({ state: '__test_state__' });
+
+    const response = await request(app)
+      .post('/callback')
+      .set('Cookie', `auth_verification=${vercookie}`)
+      .send({
+        state: '__test_state__',
+        code: randomUUID(),
+        id_token: await makeIdToken(),
+      });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err.code).to.equal('OAUTH_UNSUPPORTED_OPERATION');
+  });
+
+  it('should error when legacy samesite fallback is off', async () => {
+    const app = createApp(auth({ ...defaultConfig, legacySameSiteCookie: false }));
+
+    const vercookie = await generateTransactionCookie({ state: '__test_state__' }, '_auth_verification');
+
+    const response = await request(app)
+      .post('/callback')
+      .set('Cookie', `_auth_verification=${vercookie}`)
+      .send({
+        state: '__test_state__',
+        code: randomUUID(),
+        id_token: await makeIdToken(),
+      });
 
     expect(response.statusCode, response.text).to.equal(400);
     expect(response.body.err.code).to.equal('OAUTH_INVALID_RESPONSE');
   });
 
-  it('should accept a recent auth_time when the transaction carries max_age', async () => {
-    const response = await hybridCallback({ auth_time: Math.floor(Date.now() / 1000) - 60 }, { max_age: 3600 });
+  it('should include oauth error properties in error', async () => {
+    const app = createApp(auth(defaultConfig));
 
-    expect(response.statusCode, response.text).to.equal(302);
+    const response = await request(app).post('/callback').send({
+      error: 'foo',
+      error_description: 'bar',
+      code: 'TEST_CODE',
+    });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err?.error).to.equal('foo');
+    expect(response.body.err?.error_description).to.equal('bar');
+  });
+
+  it('should require auth_time when the transaction carries max_age', async () => {
+    const response = await hybridCallback({}, { max_age: 3600 });
+
+    expect(response.statusCode, response.text).to.equal(400);
+    expect(response.body.err.code).to.equal('OAUTH_INVALID_RESPONSE');
   });
 });
 
@@ -947,4 +936,15 @@ async function hybridCallback(idTokenClaims, transaction) {
 
 function encodeBasicAuthValue(v) {
   return encodeURIComponent(v).replace(/_/g, '%5F');
+}
+
+/**
+ * Generate transient transaction cookie value
+ * @param {Record<string, string | number>} value
+ * @param {string} [cookieName]
+ * @param {string} [secret]
+ */
+function generateTransactionCookie(value, cookieName = 'auth_verification', secret) {
+  const [key] = getSigningKeyStore(secret ?? defaultConfig.secret);
+  return signCookie(cookieName, JSON.stringify(value), key);
 }

@@ -173,6 +173,7 @@ Feature('Configuration', () => {
       response = await agent
         .get('/callback')
         .set(headers)
+        .set('cookie', secureCookies(agent))
         .query({
           code: randomUUID(),
           state: authCallUrl.searchParams.get('state'),
@@ -184,8 +185,12 @@ Feature('Configuration', () => {
       expect(response.get('location')).to.equal('/');
     });
 
+    And('session cookie is marked Secure', () => {
+      expect(getSetCookie(response, 'appSession')).to.have.property('secure', true);
+    });
+
     When('user signs out', async () => {
-      response = await agent.get('/logout').set(headers);
+      response = await agent.get('/logout').set(headers).set('cookie', secureCookies(agent));
     });
 
     Then('user is redirected to autodetected base url', () => {
@@ -285,6 +290,7 @@ Feature('Configuration', () => {
       response = await agent
         .get('/callback')
         .set(headers)
+        .set('cookie', secureCookies(agent))
         .query({
           code: randomUUID(),
           state: authCallUrl.searchParams.get('state'),
@@ -297,7 +303,7 @@ Feature('Configuration', () => {
     });
 
     When('user signs out', async () => {
-      response = await agent.get('/logout').set(headers);
+      response = await agent.get('/logout').set(headers).set('cookie', secureCookies(agent));
     });
 
     Then('user is redirected to end session endpoint with expected post logout uri', () => {
@@ -380,6 +386,7 @@ Feature('Configuration', () => {
       response = await agent
         .get('/callback')
         .set(headers)
+        .set('cookie', secureCookies(agent))
         .query({
           code: randomUUID(),
           state: authCallUrl.searchParams.get('state'),
@@ -391,8 +398,12 @@ Feature('Configuration', () => {
       expect(response.get('location')).to.equal('/');
     });
 
+    And('session cookie is marked Secure', () => {
+      expect(getSetCookie(response, 'appSession')).to.have.property('secure', true);
+    });
+
     When('user signs out', async () => {
-      response = await agent.get('/logout').set(headers);
+      response = await agent.get('/logout').set(headers).set('cookie', secureCookies(agent));
     });
 
     Then('user is redirected to end session endpoint with expected post logout uri', () => {
@@ -408,4 +419,22 @@ Feature('Configuration', () => {
 
 function encodeBasicAuthValue(v) {
   return encodeURIComponent(v).replace(/_/g, '%5F').replace(/-/g, '%2D');
+}
+
+/**
+ * Cookies a browser on https sends, including those marked Secure, which the agent withholds over plain http
+ * @param {request.Agent} agent
+ */
+function secureCookies(agent) {
+  return agent.jar.getCookies(/** @type {any} */ ({ domain: '127.0.0.1', path: '/', secure: true })).toValueString();
+}
+
+/**
+ * Parsed Set-Cookie of a response by cookie name
+ * @param {import('supertest').Response} response
+ * @param {string} name
+ */
+function getSetCookie(response, name) {
+  const setCookies = /** @type {string[]} */ (/** @type {unknown} */ (response.get('set-cookie')));
+  return setCookies.map((c) => parseSetCookie(c)).find((cookie) => cookie.name === name);
 }

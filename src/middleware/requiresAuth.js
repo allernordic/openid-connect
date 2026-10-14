@@ -4,18 +4,9 @@ import { ForbiddenError, UnauthorizedError } from '../errors.js';
 const debug = Debug('requiresAuth');
 
 /**
- * Returns a middleware that first checks whether an end-user is authenticated
- * and then, optionally, whether the authenticated identity is authorized.
- *
- * If end-user is not authenticated `res.oidc.login()` is triggered for an HTTP
- * request that can perform a redirect, otherwise `next()` is called with an
- * `UnauthorizedError` (401). A request authenticated by `requiresBearerAuth()`
- * (`req.bearerAuth`) also satisfies the authentication check, so claim checks
- * can be chained after that middleware.
- *
- * If the end-user is authenticated but `authorize` returns a `ForbiddenError`
- * `next()` is called with that error (403) - never a login redirect, since
- * logging in again would not change the outcome.
+ * Require an authenticated end-user, by session or by `requiresBearerAuth()`, and optionally
+ * an authorized one. Anonymous requests are sent to login, or rejected with an
+ * `UnauthorizedError` (401); unauthorized requests are rejected with a `ForbiddenError` (403).
  * @param {(req: import('express').Request) => boolean} requiresLoginCheck returns `true` when the request is not authenticated
  * @param {((req: import('express').Request) => ForbiddenError | void) | undefined} authorize returns a `ForbiddenError` when the authenticated request is not authorized
  * @param {import('types').RequiresAuthOptions} options
@@ -68,18 +59,15 @@ export function requiresAuth(requiresLoginCheck = defaultRequiresLogin, options)
 }
 
 /**
- * ID token claim equals. Comparison is strict unless `options.ignoreCase`
- * and/or `options.trim` are set, which normalize string values on both sides.
+ * Require a claim of the authenticated identity to equal a value
  * @param {string} claim
  * @param {string|number|boolean|null} expected
  * @param {import('types').RequiresAuthOptions} [options]
  */
 export function claimEquals(claim, expected, options) {
-  // check that claim is a string value
   if (typeof claim !== 'string') {
     throw new TypeError('"claim" must be a string');
   }
-  // check that expected is a JSON supported primitive
   checkJSONprimitive(expected);
 
   /**
@@ -100,10 +88,8 @@ export function claimEquals(claim, expected, options) {
 }
 
 /**
- * ID token claim includes — every expected value must be present in the
- * claim (an array or a space separated string). Comparison is strict unless
- * `options.ignoreCase` and/or `options.trim` are set. Pass an options object
- * as the last argument.
+ * Require a claim of the authenticated identity, an array or a space separated string,
+ * to include every value. Pass options as the last argument.
  * @param {string} claim
  * @param  {...(string|number|boolean|null|import('types').RequiresAuthOptions)} args
  */
@@ -112,10 +98,8 @@ export function claimIncludes(claim, ...args) {
 }
 
 /**
- * ID token claim includes any — at least one expected value must be present
- * in the claim (an array or a space separated string). Comparison is strict
- * unless `options.ignoreCase` and/or `options.trim` are set. Pass an options
- * object as the last argument.
+ * Require a claim of the authenticated identity, an array or a space separated string,
+ * to include at least one value. Pass options as the last argument.
  * @param {string} claim
  * @param  {...(string|number|boolean|null|import('types').RequiresAuthOptions)} args
  */
@@ -124,13 +108,12 @@ export function claimIncludesAny(claim, ...args) {
 }
 
 /**
- * Shared implementation of `claimIncludes` (`every`) and `claimIncludesAny` (`some`)
+ * Require a claim to include every or some of the values
  * @param {'every'|'some'} mode
  * @param {string} claim
  * @param {(string|number|boolean|null|import('types').RequiresAuthOptions)[]} args
  */
 function claimIncludesMiddleware(mode, claim, args) {
-  // check that claim is a string value
   if (typeof claim !== 'string') {
     throw new TypeError('"claim" must be a string');
   }
@@ -142,7 +125,6 @@ function claimIncludesMiddleware(mode, claim, args) {
     args = args.slice(0, -1);
   }
   const expected = /** @type {(string|number|boolean|null)[]} */ (args);
-  // check that all expected are JSON supported primitives
   expected.forEach(checkJSONprimitive);
 
   /**
@@ -175,15 +157,12 @@ function claimIncludesMiddleware(mode, claim, args) {
 }
 
 /**
- * Custom claim check. The check function is only called for an authenticated
- * request. Return a truthy value to allow the request, a falsy value to reject
- * it with a `ForbiddenError`, or an `Error` (e.g. a `ForbiddenError` carrying a
- * reason) to reject it with that error.
+ * Authorize an authenticated request with a custom check. Return a truthy value to allow
+ * the request, a falsy value to reject it with a `ForbiddenError`, or an `Error` to reject it with that error.
  * @param {(req: import('express').Request, claims: import('types').IdTokenClaims) => unknown} func
  * @param {import('types').RequiresAuthOptions} [options]
  */
 export function claimCheck(func, options) {
-  // check that func is a function
   if (typeof func !== 'function' || func.constructor.name !== 'Function') {
     throw new TypeError('"claimCheck" expects a function');
   }
@@ -205,6 +184,7 @@ export function claimCheck(func, options) {
 }
 
 /**
+ * Whether the request lacks an authenticated end-user
  * @param {import('express').Request} req
  */
 function defaultRequiresLogin(req) {
@@ -215,9 +195,7 @@ function defaultRequiresLogin(req) {
 }
 
 /**
- * Claims for the authenticated identity — the verified bearer token payload
- * when `requiresBearerAuth()` authenticated the request (which takes
- * precedence), else the session's id_token claims.
+ * Claims of the authenticated identity
  * @param {import('express').Request} req
  */
 function authenticatedClaims(req) {
@@ -225,8 +203,7 @@ function authenticatedClaims(req) {
 }
 
 /**
- * Normalize a string value for comparison according to `trim` and
- * `ignoreCase`, leave other types as is
+ * Normalize a value for comparison according to the `trim` and `ignoreCase` options
  * @param {unknown} value
  * @param {import('types').RequiresAuthOptions} [options]
  */
@@ -239,7 +216,7 @@ function fold(value, options) {
 }
 
 /**
- * Check primitive value
+ * Assert that a value is a JSON primitive
  * @param {string|number|boolean|null} value
  */
 function checkJSONprimitive(value) {

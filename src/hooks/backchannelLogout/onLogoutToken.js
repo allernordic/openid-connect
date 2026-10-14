@@ -1,5 +1,5 @@
 /**
- * Default hook stores an entry in the logout store for `sid` (if available) and `sub` (if available).
+ * Default hook that records a Back-Channel Logout for the logout token's `sid` and `sub`
  * @param {any} token
  * @param {import('types').ConfigParams} config
  */

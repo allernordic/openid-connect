@@ -23,30 +23,6 @@ const defaultConfig = {
   },
 };
 
-function sessionData() {
-  const epoch = () => (Date.now() / 1000) | 0;
-  const epochNow = epoch();
-  const weekInSeconds = 7 * 24 * 60 * 60;
-
-  return JSON.stringify({
-    header: {
-      uat: epochNow,
-      iat: epochNow,
-      exp: epochNow + weekInSeconds,
-    },
-    data: { sub: '__test_sub__' },
-  });
-}
-
-/**
- * Login with claims
- * @param {import('supertest').Agent} agent
- * @param {Record<string, any>} claims
- */
-function login(agent, claims) {
-  return agent.post('/session').send(claims);
-}
-
 describe('appSession custom store', () => {
   let signedCookieValue;
   let middlewareConfig;
@@ -376,3 +352,27 @@ describe('appSession custom store', () => {
     });
   });
 });
+
+function sessionData() {
+  const epoch = () => (Date.now() / 1000) | 0;
+  const epochNow = epoch();
+  const weekInSeconds = 7 * 24 * 60 * 60;
+
+  return JSON.stringify({
+    header: {
+      uat: epochNow,
+      iat: epochNow,
+      exp: epochNow + weekInSeconds,
+    },
+    data: { sub: '__test_sub__' },
+  });
+}
+
+/**
+ * Login with claims
+ * @param {import('supertest').Agent} agent
+ * @param {Record<string, any>} claims
+ */
+function login(agent, claims) {
+  return agent.post('/session').send(claims);
+}

@@ -59,16 +59,12 @@ export class OpenIDConnectClient {
       );
     }
 
-    // Determine if this is a form_post response (POST method with body params)
-    // For form_post, we need to pass a Request object so openid-client can properly
-    // handle hybrid flow (putting params in hash) vs code flow (putting params in query)
+    // openid-client reads form_post callback params from a POST Request, not from the URL
     const isFormPost = extras?.isFormPost === true;
     const redirectUrl = new URL(redirectUri);
 
     let currentUrlOrRequest;
     if (isFormPost) {
-      // Create a web Request object for form_post handling
-      // This allows openid-client to properly route hybrid vs code flow params
       currentUrlOrRequest = new Request(redirectUrl.href, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -234,12 +230,11 @@ async function createClient(config) {
     clientAuthentication
   );
 
-  // Enable insecure (HTTP) requests if configured - must be called after Configuration is created
+  // must be applied after the Configuration is created
   if (config.allowInsecureRequests) {
     allowInsecureRequests(configuration);
   }
 
-  // Enable hybrid flow (code id_token) if configured
   const responseType = config.authorizationParams?.response_type || 'code';
   if (responseType.includes('code') && responseType.includes('id_token')) {
     useCodeIdTokenResponseType(configuration);
