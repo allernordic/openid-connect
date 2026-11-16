@@ -1,5 +1,9 @@
 # Change Log
 
+## v1.0.1
+
+- bump `openid-client` to `^6.9.0`
+
 ## v1.0.0
 
 ### Breaking

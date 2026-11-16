@@ -191,7 +191,7 @@ export class StoredSession extends Session {
 
 export class TokenSetSession extends Session {
   /**
-   * @param {Awaited<ReturnType<import('./client.js').OpenIDConnectClient['callback']>>} tokenSet
+   * @param {import('openid-client').TokenEndpointResponse & import('openid-client').TokenEndpointResponseHelpers} tokenSet
    */
   constructor(tokenSet) {
     const claims = tokenSet.claims();

@@ -44,6 +44,7 @@ export class OpenIDConnectClient {
    * @param {Record<string, any>} params
    * @param {import('types').AuthorizationParameters & {max_age?: number, code_verifier?: string}} checks
    * @param {*} extras
+   * @returns {Promise<import('openid-client').TokenEndpointResponse & import('openid-client').TokenEndpointResponseHelpers>}
    */
   callback(redirectUri, params, checks, extras) {
     const callbackParams = new URLSearchParams(params);
@@ -95,6 +96,7 @@ export class OpenIDConnectClient {
    * Refresh
    * @param {string} refreshToken
    * @param {URLSearchParams | Record<string, string>} [extras]
+   * @returns {Promise<import('openid-client').TokenEndpointResponse & import('openid-client').TokenEndpointResponseHelpers>}
    */
   refresh(refreshToken, extras) {
     return refreshTokenGrant(this.configuration, refreshToken, extras);
@@ -104,6 +106,7 @@ export class OpenIDConnectClient {
    * Fetch user info
    * @param {string} accessToken
    * @param {*} options
+   * @returns {Promise<import('openid-client').UserInfoResponse>}
    */
   async userinfo(accessToken, options = {}) {
     const expectedSubject = options?.expectedSubject;
